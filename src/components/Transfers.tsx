@@ -79,28 +79,11 @@ export default function Transfers() {
               </div>
             )}
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Product <span className="text-red-500">*</span></label>
-              <select value={form.productId} onChange={e => setForm(f => ({ ...f, productId: e.target.value }))}
-                className={`w-full px-3 py-2.5 border rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.productId ? 'border-red-400' : 'border-gray-200 dark:border-gray-700'}`}>
-                <option value="">Select product...</option>
-                {products.filter(p => p.quantity > 0).map(p => <option key={p.id} value={p.id}>{p.name} (Qty: {p.quantity})</option>)}
-              </select>
-              {errors.productId && <p className="text-xs text-red-500 mt-0.5">{errors.productId}</p>}
-            </div>
-
-            {selectedProduct && (
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-900">
-                <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">{selectedProduct.name}</p>
-                <p className="text-xs text-blue-600 dark:text-blue-400">Available: {selectedProduct.quantity} units</p>
-              </div>
-            )}
-
             {/* Location Arrow */}
             <div className="flex items-center gap-2">
               <div className="flex-1">
                 <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">From Location <span className="text-red-500">*</span></label>
-                <select value={form.fromLocationId} onChange={e => setForm(f => ({ ...f, fromLocationId: e.target.value }))}
+                <select value={form.fromLocationId} onChange={e => setForm(f => ({ ...f, fromLocationId: e.target.value, productId: '' }))}
                   className={`w-full px-3 py-2.5 border rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.fromLocationId ? 'border-red-400' : 'border-gray-200 dark:border-gray-700'}`}>
                   <option value="">From...</option>
                   {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
@@ -122,6 +105,25 @@ export default function Transfers() {
             </div>
             {errors.fromLocationId && <p className="text-xs text-red-500 -mt-2">{errors.fromLocationId}</p>}
             {errors.toLocationId && <p className="text-xs text-red-500 -mt-2">{errors.toLocationId}</p>}
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Product <span className="text-red-500">*</span></label>
+              <select value={form.productId} onChange={e => setForm(f => ({ ...f, productId: e.target.value }))}
+                className={`w-full px-3 py-2.5 border rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.productId ? 'border-red-400' : 'border-gray-200 dark:border-gray-700'}`}>
+                <option value="">{form.fromLocationId ? 'Select product...' : 'Choose a source location first'}</option>
+                {form.fromLocationId && products
+                  .filter(p => p.locationId === form.fromLocationId && p.quantity > 0)
+                  .map(p => <option key={p.id} value={p.id}>{p.name} (Qty: {p.quantity})</option>)}
+              </select>
+              {errors.productId && <p className="text-xs text-red-500 mt-0.5">{errors.productId}</p>}
+            </div>
+
+            {selectedProduct && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-900">
+                <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">{selectedProduct.name}</p>
+                <p className="text-xs text-blue-600 dark:text-blue-400">Available: {selectedProduct.quantity} units</p>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Quantity <span className="text-red-500">*</span></label>

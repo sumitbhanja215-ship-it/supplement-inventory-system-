@@ -16,12 +16,15 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    await new Promise(r => setTimeout(r, 500));
     let success = false;
-    if (mode === 'email') {
-      success = login(email, password);
-    } else {
-      success = login(pin);
+    try {
+      if (mode === 'email') {
+        success = await login(email, password);
+      } else {
+        success = await login(pin);
+      }
+    } catch {
+      success = false;
     }
     setLoading(false);
     if (!success) {
@@ -172,15 +175,6 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
-            <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 mb-2">Demo Credentials:</p>
-            <div className="space-y-1 text-xs text-blue-600 dark:text-blue-300">
-              <p>👑 Admin: admin@koushikstore.com / admin123 (PIN: 1234)</p>
-              <p>🏪 Manager: manager@koushikstore.com / manager123 (PIN: 2345)</p>
-              <p>👤 Staff: staff@koushikstore.com / staff123 (PIN: 3456)</p>
-            </div>
-          </div>
         </div>
 
         <p className="text-center text-blue-300 text-xs mt-6">

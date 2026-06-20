@@ -1,0 +1,125 @@
+Connect the existing inventory management system to Firebase Firestore and Firebase Authentication.
+
+DO NOT change the current UI, layout, colors, menus, forms, reports, dashboard, stock in, stock out, transfers, expiry, POS billing, audit logs, or locations pages.
+
+Keep all existing functionality exactly as it is.
+
+Requirements:
+
+1. Firebase Authentication
+- Email/Password Login
+- Super Admin
+- Manager
+- Staff
+
+2. Firestore Collections
+
+users
+products
+stockIn
+stockOut
+transfers
+locations
+auditLogs
+sales
+
+3. Real-Time Sync
+
+Use Firestore onSnapshot listeners for:
+
+- Dashboard
+- Inventory
+- Stock In
+- Stock Out
+- Transfers
+- Expiry
+- POS Billing
+- Reports
+- Audit Logs
+- Locations
+
+Any change made by one user must instantly appear on all logged-in devices.
+
+4. Inventory
+
+When product is added:
+- Save to Firestore
+
+When edited:
+- Update Firestore
+
+When deleted:
+- Remove from Firestore
+
+5. Stock In
+
+Increase inventory quantity.
+Create audit log.
+Update dashboard instantly.
+
+6. Stock Out
+
+Decrease inventory quantity.
+Create audit log.
+Update dashboard instantly.
+
+7. Transfers
+
+Transfer stock between locations.
+
+Warehouse Belghoria
+Salt Lake
+Dharmatala
+
+Stock must reduce from source and increase at destination automatically.
+
+8. Expiry
+
+Read expiry dates from Firestore.
+Generate alerts automatically.
+
+9. POS Billing
+
+Cash only.
+Deduct stock automatically after sale.
+Store sale history.
+
+10. Reports
+
+Generate reports from Firestore data.
+
+11. Audit Logs
+
+Track:
+- Login
+- Product Add
+- Product Edit
+- Product Delete
+- Stock In
+- Stock Out
+- Transfer
+- Sale
+
+12. Offline Support
+
+Enable Firestore offline persistence.
+
+13. Security Rules
+
+Super Admin:
+Full Access
+
+Manager:
+Inventory + Stock + Reports
+
+Staff:
+Stock In + Stock Out + POS
+
+14. Replace all mock/demo/localStorage data with Firestore.
+
+15. Create firebase.ts and connect:
+- Firebase App
+- Authentication
+- Firestore
+
+16. Keep current responsive design unchanged.

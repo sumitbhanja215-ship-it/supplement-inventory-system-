@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { FileText, Download, Search } from 'lucide-react';
+import { FileText, Download, Search, Trash2 } from 'lucide-react';
 import { formatDateTime } from '../utils/helpers';
 import { format } from 'date-fns';
 import type { LogAction } from '../types';
@@ -17,6 +17,7 @@ const ACTION_LABELS: Record<LogAction, string> = {
   logout: 'Logout',
   user_created: 'User Created',
   user_edited: 'User Edited',
+  user_deleted: 'User Deleted',
   location_created: 'Location Created',
   location_renamed: 'Location Renamed',
   location_deleted: 'Location Deleted',
@@ -35,6 +36,7 @@ const ACTION_COLORS: Record<string, string> = {
   logout: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300',
   user_created: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300',
   user_edited: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300',
+  user_deleted: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
   location_created: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300',
   location_renamed: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300',
   location_deleted: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
@@ -42,10 +44,10 @@ const ACTION_COLORS: Record<string, string> = {
 };
 
 export default function AuditLogs() {
-  const { logs, currentUser } = useStore();
+  const { logs, currentUser, resetLogs } = useStore();
   const [search, setSearch] = useState('');
   const [filterAction, setFilterAction] = useState('');
-  const canExport = currentUser?.role === 'super_admin';
+  const canReset = currentUser?.role === 'super_admin';
 
   const filtered = logs.filter(log => {
     const matchSearch = !search || log.description.toLowerCase().includes(search.toLowerCase()) || log.userName.toLowerCase().includes(search.toLowerCase());
@@ -83,10 +85,19 @@ export default function AuditLogs() {
           <option value="">All Actions</option>
           {Object.entries(ACTION_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
         </select>
-        {canExport && (
+        {canReset && (
           <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-all">
             <Download size={16} />
             Export CSV
+          </button>
+        )}
+        {canReset && (
+          <button
+            onClick={() => { if (confirm('Delete all activity logs? This cannot be undone.')) { resetLogs(); } }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-all"
+          >
+            <Trash2 size={16} />
+            Reset Logs
           </button>
         )}
       </div>
@@ -109,7 +120,7 @@ export default function AuditLogs() {
       {/* Note */}
       <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
         <FileText size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
-        <p className="text-xs text-blue-700 dark:text-blue-300">Audit logs are immutable and cannot be edited or deleted. {canExport ? 'You can export logs as CSV.' : ''}</p>
+        <p className="text-xs text-blue-700 dark:text-blue-300">Audit logs are immutable and cannot be edited or deleted individually. {canReset ? 'Super Admin can export or reset all logs.' : ''}</p>
       </div>
 
       {/* Logs Table */}

@@ -22,6 +22,8 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'general' | 'categories' | 'brands' | 'suppliers' | 'backup'>('general');
 
   const isSuperAdmin = currentUser?.role === 'super_admin';
+  const isAdmin = currentUser?.role === 'admin';
+  const canManageBackup = isSuperAdmin || isAdmin;
 
   const handleSave = () => {
     updateSettings({ storeName });
@@ -53,7 +55,7 @@ export default function SettingsPage() {
     { id: 'categories', label: 'Categories', icon: Tag },
     { id: 'brands', label: 'Brands', icon: Package },
     { id: 'suppliers', label: 'Suppliers', icon: Store },
-    ...(isSuperAdmin ? [{ id: 'backup', label: 'Backup', icon: Download }] : []),
+    ...(canManageBackup ? [{ id: 'backup', label: 'Backup', icon: Download }] : []),
   ] as const;
 
   return (
@@ -273,7 +275,7 @@ export default function SettingsPage() {
       )}
 
       {/* Backup */}
-      {activeTab === 'backup' && isSuperAdmin && (
+      {activeTab === 'backup' && canManageBackup && (
         <div className="space-y-4">
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-5">
             <h3 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">

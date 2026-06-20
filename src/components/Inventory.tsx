@@ -20,7 +20,7 @@ export default function Inventory() {
   const [viewProduct, setViewProduct] = useState<Product | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  const canDelete = currentUser?.role === 'super_admin' || currentUser?.role === 'store_manager';
+  const canDelete = currentUser?.role === 'super_admin' || currentUser?.role === 'admin' || currentUser?.role === 'store_manager';
 
   const filtered = products.filter(p => {
     const brand = brands.find(b => b.id === p.brandId)?.name || '';

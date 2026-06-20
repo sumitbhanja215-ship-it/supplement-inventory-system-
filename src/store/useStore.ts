@@ -1,16 +1,34 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  signInWithEmailAndPassword,
+  signOut,
+  createUserWithEmailAndPassword,
+} from 'firebase/auth';
+import { auth } from '../firebase';
+import {
+  saveProductDoc, updateProductDoc, deleteProductDoc,
+  saveStockMovementDoc, saveTransferDoc, updateTransferDoc,
+  saveSaleDoc, saveLogDoc, saveNotificationDoc, updateNotificationDoc,
+  saveLocationDoc, updateLocationDoc, deleteLocationDoc,
+  saveCategoryDoc, deleteCategoryDoc,
+  saveBrandDoc, deleteBrandDoc,
+  saveSupplierDoc, updateSupplierDoc,
+  saveUserDoc, updateUserDoc, deleteUserDoc,
+  getUserByPin, saveSettingsDoc, stripUndefined,
+  deleteAllLogDocs,
+} from '../services/firestoreService';
 import type {
   User, Location, Category, Brand, Supplier, Product,
   StockMovement, Transfer, Log, Notification, POSSale,
-  AppSettings, LogAction, Theme
+  AppSettings, LogAction, Theme,
 } from '../types';
 
 interface AppState {
   // Auth
   currentUser: User | null;
   isAuthenticated: boolean;
+  authLoading: boolean;
 
   // Data
   users: User[];
@@ -30,58 +48,75 @@ interface AppState {
   sidebarOpen: boolean;
   activeTab: string;
 
+  // Internal setters (used by onSnapshot listeners)
+  _setUsers: (users: User[]) => void;
+  _setLocations: (locations: Location[]) => void;
+  _setCategories: (categories: Category[]) => void;
+  _setBrands: (brands: Brand[]) => void;
+  _setSuppliers: (suppliers: Supplier[]) => void;
+  _setProducts: (products: Product[]) => void;
+  _setStockMovements: (movements: StockMovement[]) => void;
+  _setTransfers: (transfers: Transfer[]) => void;
+  _setLogs: (logs: Log[]) => void;
+  _setNotifications: (notifications: Notification[]) => void;
+  _setPosSales: (sales: POSSale[]) => void;
+  _setSettings: (settings: AppSettings) => void;
+  _setAuthLoading: (loading: boolean) => void;
+
   // Auth Actions
-  login: (emailOrPin: string, password?: string) => boolean;
-  logout: () => void;
+  login: (emailOrPin: string, password?: string) => Promise<boolean>;
+  logout: () => Promise<void>;
+  setCurrentUserFromAuth: (user: User | null) => void;
 
   // User Actions
-  addUser: (user: Omit<User, 'id' | 'createdAt'>) => void;
-  updateUser: (id: string, data: Partial<User>) => void;
-  deleteUser: (id: string) => void;
+  addUser: (user: Omit<User, 'id' | 'createdAt'>) => Promise<void>;
+  updateUser: (id: string, data: Partial<User>) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
 
   // Location Actions
-  addLocation: (name: string) => void;
-  renameLocation: (id: string, name: string) => void;
-  deleteLocation: (id: string) => void;
+  addLocation: (name: string) => Promise<void>;
+  renameLocation: (id: string, name: string) => Promise<void>;
+  deleteLocation: (id: string) => Promise<void>;
 
   // Category Actions
-  addCategory: (name: string) => void;
-  deleteCategory: (id: string) => void;
+  addCategory: (name: string) => Promise<void>;
+  deleteCategory: (id: string) => Promise<void>;
 
   // Brand Actions
-  addBrand: (name: string) => void;
-  deleteBrand: (id: string) => void;
+  addBrand: (name: string) => Promise<void>;
+  deleteBrand: (id: string) => Promise<void>;
 
   // Supplier Actions
-  addSupplier: (supplier: Omit<Supplier, 'id' | 'createdAt'>) => void;
-  updateSupplier: (id: string, data: Partial<Supplier>) => void;
+  addSupplier: (supplier: Omit<Supplier, 'id' | 'createdAt'>) => Promise<void>;
+  updateSupplier: (id: string, data: Partial<Supplier>) => Promise<void>;
 
   // Product Actions
-  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateProduct: (id: string, data: Partial<Product>) => void;
-  deleteProduct: (id: string) => void;
+  addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateProduct: (id: string, data: Partial<Product>) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
 
   // Stock Actions
-  stockIn: (movement: Omit<StockMovement, 'id' | 'timestamp' | 'type'>) => void;
-  stockOut: (movement: Omit<StockMovement, 'id' | 'timestamp' | 'type'>) => void;
+  stockIn: (movement: Omit<StockMovement, 'id' | 'timestamp' | 'type'>) => Promise<void>;
+  stockOut: (movement: Omit<StockMovement, 'id' | 'timestamp' | 'type'>) => Promise<void>;
 
   // Transfer Actions
-  createTransfer: (transfer: Omit<Transfer, 'id' | 'timestamp' | 'status'>) => void;
-  completeTransfer: (id: string) => void;
+  createTransfer: (transfer: Omit<Transfer, 'id' | 'timestamp' | 'status'>) => Promise<void>;
+  completeTransfer: (id: string) => Promise<void>;
 
   // POS Actions
-  createPOSSale: (sale: Omit<POSSale, 'id' | 'timestamp'>) => void;
+  createPOSSale: (sale: Omit<POSSale, 'id' | 'timestamp'>) => Promise<void>;
 
   // Notification Actions
-  markNotificationRead: (id: string) => void;
-  markAllNotificationsRead: () => void;
-  addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void;
+  markNotificationRead: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
+  addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => Promise<void>;
 
   // Log Actions
   addLog: (action: LogAction, description: string, metadata?: Record<string, unknown>) => void;
+  resetLogs: () => Promise<void>;
 
   // Settings Actions
-  updateSettings: (settings: Partial<AppSettings>) => void;
+  updateSettings: (settings: Partial<AppSettings>) => Promise<void>;
 
   // UI Actions
   setSidebarOpen: (open: boolean) => void;
@@ -89,461 +124,468 @@ interface AppState {
   setTheme: (theme: Theme) => void;
 }
 
-const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'cat1', name: 'Whey Protein' },
-  { id: 'cat2', name: 'Creatine' },
-  { id: 'cat3', name: 'Glutamine' },
-  { id: 'cat4', name: 'L-Carnitine' },
-  { id: 'cat5', name: 'Joint Support' },
-  { id: 'cat6', name: 'BCAA' },
-  { id: 'cat7', name: 'EAA' },
-  { id: 'cat8', name: 'Pre Workout' },
-  { id: 'cat9', name: 'Liver Detox' },
-  { id: 'cat10', name: 'Fat Burners' },
-  { id: 'cat11', name: 'Collagen' },
-  { id: 'cat12', name: 'Hormonal & Reproductive Health' },
-  { id: 'cat13', name: 'Anti-Aging' },
-  { id: 'cat14', name: 'Skin, Hair & Nails' },
-  { id: 'cat15', name: 'Immune Support' },
-  { id: 'cat16', name: 'Brain & Cognitive (Nootropics)' },
-  { id: 'cat17', name: 'Multivitamins' },
-];
+export const useStore = create<AppState>()((set, get) => ({
+  currentUser: null,
+  isAuthenticated: false,
+  authLoading: true,
+  users: [],
+  locations: [],
+  categories: [],
+  brands: [],
+  suppliers: [],
+  products: [],
+  stockMovements: [],
+  transfers: [],
+  logs: [],
+  notifications: [],
+  posSales: [],
+  settings: {
+    storeName: "KOUSHIK'S THE SUPPLEMENT STORE",
+    currency: '₹',
+    theme: 'light',
+    inactivityTimeout: 30,
+  },
+  sidebarOpen: false,
+  activeTab: 'dashboard',
 
-const DEFAULT_BRANDS: Brand[] = [
-  { id: 'br1', name: 'Optimum Nutrition' },
-  { id: 'br2', name: 'MuscleBlaze' },
-  { id: 'br3', name: 'MuscleTech' },
-  { id: 'br4', name: 'BSN' },
-  { id: 'br5', name: 'Dymatize' },
-  { id: 'br6', name: 'Himalaya', custom: false },
-  { id: 'br7', name: 'Kapiva', custom: false },
-  { id: 'br8', name: 'Organic India', custom: false },
-  { id: 'br9', name: 'Wellbeing Nutrition', custom: false },
-  { id: 'br10', name: 'AS-IT-IS Nutrition' },
-  { id: 'br11', name: 'GNC' },
-  { id: 'br12', name: 'HealthKart' },
-];
+  // ─── Internal setters ──────────────────────────────────────────────────────
+  _setUsers: (users) => set({ users }),
+  _setLocations: (locations) => set({ locations }),
+  _setCategories: (categories) => set({ categories }),
+  _setBrands: (brands) => set({ brands }),
+  _setSuppliers: (suppliers) => set({ suppliers }),
+  _setProducts: (products) => set({ products }),
+  _setStockMovements: (stockMovements) => set({ stockMovements }),
+  _setTransfers: (transfers) => set({ transfers }),
+  _setLogs: (logs) => set({ logs }),
+  _setNotifications: (notifications) => set({ notifications }),
+  _setPosSales: (posSales) => set({ posSales }),
+  _setSettings: (settings) => set({ settings }),
+  _setAuthLoading: (authLoading) => set({ authLoading }),
 
-const DEFAULT_LOCATIONS: Location[] = [
-  { id: 'loc1', name: 'Warehouse Belghoria', createdAt: new Date().toISOString() },
-  { id: 'loc2', name: 'Salt Lake', createdAt: new Date().toISOString() },
-  { id: 'loc3', name: 'Dharmatala', createdAt: new Date().toISOString() },
-];
+  // ─── Auth ──────────────────────────────────────────────────────────────────
+  setCurrentUserFromAuth: (user) => {
+    set({ currentUser: user, isAuthenticated: !!user, authLoading: false });
+  },
 
-const DEFAULT_SUPPLIERS: Supplier[] = [
-  { id: 'sup1', name: 'National Nutrition Distributors', contact: '9876543210', email: 'info@nnd.in', createdAt: new Date().toISOString() },
-  { id: 'sup2', name: 'Bengal Supplement Hub', contact: '9988776655', email: 'sales@bsh.in', createdAt: new Date().toISOString() },
-  { id: 'sup3', name: 'Kolkata Fitness Supplies', contact: '9012345678', email: 'kolkata@fitness.in', createdAt: new Date().toISOString() },
-];
-
-const DEFAULT_USERS: User[] = [
-  {
-    id: 'user1',
-    name: 'Koushik',
-    email: 'admin@koushikstore.com',
-    password: 'admin123',
-    pin: '1234',
-    role: 'super_admin',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'user2',
-    name: 'Rahul Manager',
-    email: 'manager@koushikstore.com',
-    password: 'manager123',
-    pin: '2345',
-    role: 'store_manager',
-    assignedLocation: 'loc1',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'user3',
-    name: 'Priya Staff',
-    email: 'staff@koushikstore.com',
-    password: 'staff123',
-    pin: '3456',
-    role: 'staff',
-    assignedLocation: 'loc2',
-    createdAt: new Date().toISOString(),
-  },
-];
-
-const SAMPLE_PRODUCTS: Product[] = [
-  {
-    id: 'prod1', name: 'Whey Gold Standard', brandId: 'br1', categoryId: 'cat1',
-    batchNumber: 'WGS-2024-001', expiryDate: '2026-06-30', manufacturingDate: '2024-06-30',
-    purchasePrice: 2800, sellingPrice: 3499, gstPercentage: 18, quantity: 45,
-    minimumStockLevel: 10, supplierId: 'sup1', supplierContact: '9876543210',
-    locationId: 'loc1', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), createdBy: 'user1'
-  },
-  {
-    id: 'prod2', name: 'Creatine Monohydrate 300g', brandId: 'br2', categoryId: 'cat2',
-    batchNumber: 'CM-2024-045', expiryDate: '2025-03-15', manufacturingDate: '2023-03-15',
-    purchasePrice: 450, sellingPrice: 699, gstPercentage: 18, quantity: 8,
-    minimumStockLevel: 15, supplierId: 'sup2', supplierContact: '9988776655',
-    locationId: 'loc2', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), createdBy: 'user1'
-  },
-  {
-    id: 'prod3', name: 'BCAA 2:1:1 Watermelon', brandId: 'br3', categoryId: 'cat6',
-    batchNumber: 'BCAA-2024-112', expiryDate: '2025-02-10', manufacturingDate: '2023-02-10',
-    purchasePrice: 1200, sellingPrice: 1799, gstPercentage: 18, quantity: 3,
-    minimumStockLevel: 10, supplierId: 'sup1', supplierContact: '9876543210',
-    locationId: 'loc1', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), createdBy: 'user1'
-  },
-  {
-    id: 'prod4', name: 'Pre Workout Explosive', brandId: 'br4', categoryId: 'cat8',
-    batchNumber: 'PW-2024-088', expiryDate: '2026-12-31', manufacturingDate: '2024-12-31',
-    purchasePrice: 1500, sellingPrice: 2199, gstPercentage: 18, quantity: 22,
-    minimumStockLevel: 8, supplierId: 'sup3', supplierContact: '9012345678',
-    locationId: 'loc3', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), createdBy: 'user1'
-  },
-  {
-    id: 'prod5', name: 'Himalaya Ashwagandha', brandId: 'br6', categoryId: 'cat12',
-    batchNumber: 'HA-2024-200', expiryDate: '2024-12-15', manufacturingDate: '2022-12-15',
-    purchasePrice: 180, sellingPrice: 299, gstPercentage: 5, quantity: 30,
-    minimumStockLevel: 20, supplierId: 'sup2', supplierContact: '9988776655',
-    locationId: 'loc2', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), createdBy: 'user1'
-  },
-  {
-    id: 'prod6', name: 'Multivitamin Daily', brandId: 'br11', categoryId: 'cat17',
-    batchNumber: 'MV-2024-067', expiryDate: '2026-08-20', manufacturingDate: '2024-08-20',
-    purchasePrice: 800, sellingPrice: 1299, gstPercentage: 12, quantity: 55,
-    minimumStockLevel: 15, supplierId: 'sup1', supplierContact: '9876543210',
-    locationId: 'loc1', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), createdBy: 'user1'
-  },
-];
-
-export const useStore = create<AppState>()(
-  persist(
-    (set, get) => ({
-      currentUser: null,
-      isAuthenticated: false,
-      users: DEFAULT_USERS,
-      locations: DEFAULT_LOCATIONS,
-      categories: DEFAULT_CATEGORIES,
-      brands: DEFAULT_BRANDS,
-      suppliers: DEFAULT_SUPPLIERS,
-      products: SAMPLE_PRODUCTS,
-      stockMovements: [],
-      transfers: [],
-      logs: [],
-      notifications: [
-        {
-          id: 'notif1', type: 'low_stock', title: 'Low Stock Alert',
-          message: 'BCAA 2:1:1 Watermelon is running low (3 units)', read: false,
-          timestamp: new Date().toISOString(), productId: 'prod3'
-        },
-        {
-          id: 'notif2', type: 'expiring', title: 'Expiring Soon',
-          message: 'Himalaya Ashwagandha expires on 15 Dec 2024', read: false,
-          timestamp: new Date().toISOString(), productId: 'prod5'
-        },
-      ],
-      posSales: [],
-      settings: {
-        storeName: "KOUSHIK'S THE SUPPLEMENT STORE",
-        currency: '₹',
-        theme: 'light',
-        inactivityTimeout: 30,
-      },
-      sidebarOpen: false,
-      activeTab: 'dashboard',
-
-      login: (emailOrPin, password) => {
-        const { users } = get();
-        let user: User | undefined;
-        if (password) {
-          user = users.find(u => u.email === emailOrPin && u.password === password);
-        } else {
-          user = users.find(u => u.pin === emailOrPin);
+  login: async (emailOrPin, password) => {
+    try {
+      if (password) {
+        console.log('[Login] Email login attempt:', emailOrPin);
+        await signInWithEmailAndPassword(auth, emailOrPin, password);
+        console.log('[Login] Firebase Auth success');
+        return true;
+      } else {
+        console.log('[Login] PIN login attempt');
+        const user = await getUserByPin(emailOrPin);
+        if (!user) {
+          console.log('[Login] PIN not found in Firestore');
+          return false;
         }
-        if (user) {
-          const updatedUser = { ...user, lastLogin: new Date().toISOString() };
-          set(state => ({
-            currentUser: updatedUser,
-            isAuthenticated: true,
-            users: state.users.map(u => u.id === user!.id ? updatedUser : u),
-          }));
-          get().addLog('login', `${user.name} logged in`, { userId: user.id });
-          return true;
-        }
-        return false;
-      },
-
-      logout: () => {
-        const { currentUser } = get();
-        if (currentUser) {
-          get().addLog('logout', `${currentUser.name} logged out`);
-        }
-        set({ currentUser: null, isAuthenticated: false, activeTab: 'dashboard' });
-      },
-
-      addUser: (userData) => {
-        const user: User = { ...userData, id: uuidv4(), createdAt: new Date().toISOString() };
-        set(state => ({ users: [...state.users, user] }));
-        get().addLog('user_created', `User ${user.name} created`);
-      },
-
-      updateUser: (id, data) => {
-        set(state => ({ users: state.users.map(u => u.id === id ? { ...u, ...data } : u) }));
-        get().addLog('user_edited', `User updated`);
-      },
-
-      deleteUser: (id) => {
-        const user = get().users.find(u => u.id === id);
-        set(state => ({ users: state.users.filter(u => u.id !== id) }));
-        if (user) get().addLog('user_edited', `User ${user.name} deleted`);
-      },
-
-      addLocation: (name) => {
-        const location: Location = { id: uuidv4(), name, createdAt: new Date().toISOString() };
-        set(state => ({ locations: [...state.locations, location] }));
-        get().addLog('location_created', `Location "${name}" created`);
-      },
-
-      renameLocation: (id, name) => {
-        set(state => ({ locations: state.locations.map(l => l.id === id ? { ...l, name } : l) }));
-        get().addLog('location_renamed', `Location renamed to "${name}"`);
-      },
-
-      deleteLocation: (id) => {
-        const loc = get().locations.find(l => l.id === id);
-        set(state => ({ locations: state.locations.filter(l => l.id !== id) }));
-        if (loc) get().addLog('location_deleted', `Location "${loc.name}" deleted`);
-      },
-
-      addCategory: (name) => {
-        const category: Category = { id: uuidv4(), name, custom: true };
-        set(state => ({ categories: [...state.categories, category] }));
-      },
-
-      deleteCategory: (id) => {
-        set(state => ({ categories: state.categories.filter(c => c.id !== id) }));
-      },
-
-      addBrand: (name) => {
-        const brand: Brand = { id: uuidv4(), name, custom: true };
-        set(state => ({ brands: [...state.brands, brand] }));
-      },
-
-      deleteBrand: (id) => {
-        set(state => ({ brands: state.brands.filter(b => b.id !== id) }));
-      },
-
-      addSupplier: (supplierData) => {
-        const supplier: Supplier = { ...supplierData, id: uuidv4(), createdAt: new Date().toISOString() };
-        set(state => ({ suppliers: [...state.suppliers, supplier] }));
-      },
-
-      updateSupplier: (id, data) => {
-        set(state => ({ suppliers: state.suppliers.map(s => s.id === id ? { ...s, ...data } : s) }));
-      },
-
-      addProduct: (productData) => {
-        const product: Product = {
-          ...productData,
-          id: uuidv4(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        set(state => ({ products: [...state.products, product] }));
-        get().addLog('product_created', `Product "${product.name}" created`, { productId: product.id });
-        get().addNotification({ type: 'new_product', title: 'New Product Added', message: `${product.name} has been added to inventory` });
-        // Check low stock
-        if (product.quantity <= product.minimumStockLevel) {
-          get().addNotification({ type: 'low_stock', title: 'Low Stock Alert', message: `${product.name} is below minimum stock level`, productId: product.id });
-        }
-      },
-
-      updateProduct: (id, data) => {
-        set(state => ({
-          products: state.products.map(p => p.id === id ? { ...p, ...data, updatedAt: new Date().toISOString() } : p)
-        }));
-        get().addLog('product_edited', `Product updated`, { productId: id });
-      },
-
-      deleteProduct: (id) => {
-        const product = get().products.find(p => p.id === id);
-        set(state => ({ products: state.products.filter(p => p.id !== id) }));
-        if (product) get().addLog('product_deleted' as LogAction, `Product "${product.name}" deleted`);
-      },
-
-      stockIn: (movementData) => {
-        const movement: StockMovement = {
-          ...movementData,
-          id: uuidv4(),
-          type: 'stock_in',
-          timestamp: new Date().toISOString(),
-        };
-        set(state => ({
-          stockMovements: [...state.stockMovements, movement],
-          products: state.products.map(p =>
-            p.id === movement.productId
-              ? { ...p, quantity: p.quantity + movement.quantity, updatedAt: new Date().toISOString() }
-              : p
-          ),
-        }));
-        const product = get().products.find(p => p.id === movementData.productId);
-        get().addLog('stock_added', `Stock in: ${movement.quantity} units of ${product?.name}`, { movementId: movement.id });
-      },
-
-      stockOut: (movementData) => {
-        const movement: StockMovement = {
-          ...movementData,
-          id: uuidv4(),
-          type: 'stock_out',
-          timestamp: new Date().toISOString(),
-        };
-        set(state => ({
-          stockMovements: [...state.stockMovements, movement],
-          products: state.products.map(p => {
-            if (p.id === movement.productId) {
-              const newQty = Math.max(0, p.quantity - movement.quantity);
-              return { ...p, quantity: newQty, updatedAt: new Date().toISOString() };
-            }
-            return p;
-          }),
-        }));
-        const product = get().products.find(p => p.id === movementData.productId);
-        get().addLog('stock_removed', `Stock out: ${movement.quantity} units of ${product?.name}`, { movementId: movement.id });
-        // Check low stock after removal
-        const updatedProduct = get().products.find(p => p.id === movementData.productId);
-        if (updatedProduct && updatedProduct.quantity <= updatedProduct.minimumStockLevel) {
-          get().addNotification({
-            type: 'low_stock', title: 'Low Stock Alert',
-            message: `${updatedProduct.name} is now at ${updatedProduct.quantity} units (min: ${updatedProduct.minimumStockLevel})`,
-            productId: updatedProduct.id
-          });
-        }
-      },
-
-      createTransfer: (transferData) => {
-        const transfer: Transfer = {
-          ...transferData,
-          id: uuidv4(),
-          timestamp: new Date().toISOString(),
-          status: 'in_transit',
-        };
-        // Immediately deduct from source
-        set(state => ({
-          transfers: [...state.transfers, transfer],
-          products: state.products.map(p =>
-            p.id === transfer.productId
-              ? { ...p, quantity: Math.max(0, p.quantity - transfer.quantity), updatedAt: new Date().toISOString() }
-              : p
-          ),
-          stockMovements: [...state.stockMovements, {
-            id: uuidv4(), productId: transfer.productId, type: 'transfer_out' as const,
-            quantity: transfer.quantity, locationId: transfer.fromLocationId,
-            userId: transfer.userId, timestamp: new Date().toISOString(),
-          }],
-        }));
-        const product = get().products.find(p => p.id === transferData.productId);
-        const fromLoc = get().locations.find(l => l.id === transferData.fromLocationId);
-        const toLoc = get().locations.find(l => l.id === transferData.toLocationId);
-        get().addLog('transfer_created', `Transfer: ${transfer.quantity} units of ${product?.name} from ${fromLoc?.name} to ${toLoc?.name}`);
-        get().addNotification({ type: 'transfer', title: 'Transfer Initiated', message: `${transfer.quantity} units of ${product?.name} is en route to ${toLoc?.name}` });
-      },
-
-      completeTransfer: (id) => {
-        const transfer = get().transfers.find(t => t.id === id);
-        if (!transfer) return;
-        set(state => ({
-          transfers: state.transfers.map(t => t.id === id ? { ...t, status: 'completed', completedAt: new Date().toISOString() } : t),
-          products: state.products.map(p =>
-            p.id === transfer.productId
-              ? { ...p, quantity: p.quantity + transfer.quantity, locationId: transfer.toLocationId, updatedAt: new Date().toISOString() }
-              : p
-          ),
-          stockMovements: [...state.stockMovements, {
-            id: uuidv4(), productId: transfer.productId, type: 'transfer_in' as const,
-            quantity: transfer.quantity, locationId: transfer.toLocationId,
-            userId: transfer.userId, timestamp: new Date().toISOString(),
-          }],
-        }));
-        const product = get().products.find(p => p.id === transfer.productId);
-        get().addLog('transfer_completed', `Transfer completed: ${transfer.quantity} units of ${product?.name}`);
-      },
-
-      createPOSSale: (saleData) => {
-        const sale: POSSale = { ...saleData, id: uuidv4(), timestamp: new Date().toISOString() };
-        set(state => ({ posSales: [...state.posSales, sale] }));
-        // Stock out for each item
-        sale.items.forEach(item => {
-          get().stockOut({
-            productId: item.productId, quantity: item.quantity,
-            locationId: sale.locationId, userId: sale.userId,
-            reason: 'POS Sale', customerName: sale.customerName,
-          });
-        });
-        get().addLog('pos_sale', `POS Sale: ₹${sale.totalAmount.toFixed(2)}`, { saleId: sale.id });
-      },
-
-      markNotificationRead: (id) => {
-        set(state => ({
-          notifications: state.notifications.map(n => n.id === id ? { ...n, read: true } : n)
-        }));
-      },
-
-      markAllNotificationsRead: () => {
-        set(state => ({ notifications: state.notifications.map(n => ({ ...n, read: true })) }));
-      },
-
-      addNotification: (notifData) => {
-        const notification: Notification = {
-          ...notifData,
-          id: uuidv4(),
-          timestamp: new Date().toISOString(),
-          read: false,
-        };
-        set(state => ({ notifications: [notification, ...state.notifications].slice(0, 50) }));
-      },
-
-      addLog: (action, description, metadata) => {
-        const { currentUser } = get();
-        const log: Log = {
-          id: uuidv4(),
-          action,
-          userId: currentUser?.id || 'system',
-          userName: currentUser?.name || 'System',
-          description,
-          metadata,
-          timestamp: new Date().toISOString(),
-        };
-        set(state => ({ logs: [log, ...state.logs].slice(0, 1000) }));
-      },
-
-      updateSettings: (newSettings) => {
-        set(state => ({ settings: { ...state.settings, ...newSettings } }));
-      },
-
-      setSidebarOpen: (open) => set({ sidebarOpen: open }),
-      setActiveTab: (tab) => set({ activeTab: tab }),
-      setTheme: (theme) => {
-        set(state => ({ settings: { ...state.settings, theme } }));
-        if (theme === 'dark') {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-      },
-    }),
-    {
-      name: 'koushik-supplement-store',
-      partialize: (state) => ({
-        users: state.users,
-        locations: state.locations,
-        categories: state.categories,
-        brands: state.brands,
-        suppliers: state.suppliers,
-        products: state.products,
-        stockMovements: state.stockMovements,
-        transfers: state.transfers,
-        logs: state.logs,
-        notifications: state.notifications,
-        posSales: state.posSales,
-        settings: state.settings,
-      }),
+        console.log('[Login] PIN matched user:', user.email);
+        await signInWithEmailAndPassword(auth, user.email, user.password);
+        console.log('[Login] PIN Firebase Auth success');
+        return true;
+      }
+    } catch (err) {
+      console.error('[Login] Error:', err);
+      return false;
     }
-  )
-);
+  },
+
+  logout: async () => {
+    const { currentUser } = get();
+    if (currentUser) {
+      get().addLog('logout', `${currentUser.name} logged out`);
+    }
+    await signOut(auth);
+    set({ currentUser: null, isAuthenticated: false, activeTab: 'dashboard' });
+  },
+
+  // ─── Users ────────────────────────────────────────────────────────────────
+  addUser: async (userData) => {
+    // Save current admin credentials so we can re-authenticate after creating new user
+    const admin = get().currentUser;
+    const adminEmail = admin?.email || '';
+    const adminPassword = admin?.password || '';
+
+    console.log('[addUser] Creating Firebase Auth user:', userData.email);
+
+    let newUid = '';
+    try {
+      // createUserWithEmailAndPassword automatically signs in as the NEW user
+      const cred = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
+      newUid = cred.user.uid;
+      console.log('[addUser] Auth user created, UID:', newUid);
+    } catch (err) {
+      console.error('[addUser] Firebase Auth creation failed:', err);
+      throw err;
+    }
+
+    // Build Firestore user document
+    const user: User = {
+      ...userData,
+      id: newUid,
+      // Ensure no undefined values — use null for optional fields
+      pin: userData.pin || undefined,
+      assignedLocation: userData.assignedLocation || undefined,
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      console.log('[addUser] Writing Firestore document for UID:', newUid);
+      await saveUserDoc(user);
+      console.log('[addUser] Firestore document created successfully');
+    } catch (err) {
+      console.error('[addUser] Firestore write failed:', err);
+      // Still re-sign-in as admin even if Firestore write failed
+    }
+
+    // Re-authenticate as admin (createUserWithEmailAndPassword signed us in as new user)
+    if (adminEmail && adminPassword) {
+      try {
+        console.log('[addUser] Re-authenticating as admin:', adminEmail);
+        await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+        console.log('[addUser] Admin re-auth success');
+      } catch (err) {
+        console.error('[addUser] Admin re-auth failed:', err);
+        throw err;
+      }
+    }
+
+    get().addLog('user_created', `User ${user.name} (${user.role}) created`, { userId: newUid });
+  },
+
+  updateUser: async (id, data) => {
+    console.log('[updateUser] Updating user:', id, data);
+    await updateUserDoc(id, data);
+    // Update in local state immediately
+    set(state => ({
+      users: state.users.map(u => u.id === id ? { ...u, ...data } : u),
+    }));
+    get().addLog('user_edited', 'User updated', { userId: id });
+  },
+
+  deleteUser: async (id) => {
+    const user = get().users.find(u => u.id === id);
+    await deleteUserDoc(id);
+    if (user) get().addLog('user_deleted', `User ${user.name} deleted`, { userId: id });
+  },
+
+  // ─── Locations ────────────────────────────────────────────────────────────
+  addLocation: async (name) => {
+    const location: Location = { id: uuidv4(), name, createdAt: new Date().toISOString() };
+    await saveLocationDoc(location);
+    get().addLog('location_created', `Location "${name}" created`);
+  },
+
+  renameLocation: async (id, name) => {
+    await updateLocationDoc(id, { name });
+    get().addLog('location_renamed', `Location renamed to "${name}"`);
+  },
+
+  deleteLocation: async (id) => {
+    const loc = get().locations.find(l => l.id === id);
+    await deleteLocationDoc(id);
+    if (loc) get().addLog('location_deleted', `Location "${loc.name}" deleted`);
+  },
+
+  // ─── Categories ───────────────────────────────────────────────────────────
+  addCategory: async (name) => {
+    const category: Category = { id: uuidv4(), name, custom: true };
+    await saveCategoryDoc(category);
+  },
+
+  deleteCategory: async (id) => {
+    await deleteCategoryDoc(id);
+  },
+
+  // ─── Brands ───────────────────────────────────────────────────────────────
+  addBrand: async (name) => {
+    const brand: Brand = { id: uuidv4(), name, custom: true };
+    await saveBrandDoc(brand);
+  },
+
+  deleteBrand: async (id) => {
+    await deleteBrandDoc(id);
+  },
+
+  // ─── Suppliers ────────────────────────────────────────────────────────────
+  addSupplier: async (supplierData) => {
+    const supplier: Supplier = { ...supplierData, id: uuidv4(), createdAt: new Date().toISOString() };
+    await saveSupplierDoc(supplier);
+  },
+
+  updateSupplier: async (id, data) => {
+    await updateSupplierDoc(id, data);
+  },
+
+  // ─── Products ─────────────────────────────────────────────────────────────
+  addProduct: async (productData) => {
+    const { currentUser } = get();
+    const product: Product = {
+      ...productData,
+      id: uuidv4(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      createdBy: currentUser?.id || 'system',
+    };
+    set(state => ({ products: [...state.products, product] }));
+    await saveProductDoc(product);
+    get().addLog('product_created', `Product "${product.name}" created`, { productId: product.id });
+    await get().addNotification({ type: 'new_product', title: 'New Product Added', message: `${product.name} has been added to inventory` });
+    if (product.quantity <= product.minimumStockLevel) {
+      await get().addNotification({ type: 'low_stock', title: 'Low Stock Alert', message: `${product.name} is below minimum stock level`, productId: product.id });
+    }
+  },
+
+  updateProduct: async (id, data) => {
+    set(state => ({
+      products: state.products.map(p => p.id === id ? { ...p, ...data, updatedAt: new Date().toISOString() } : p),
+    }));
+    await updateProductDoc(id, data);
+    get().addLog('product_edited', 'Product updated', { productId: id });
+  },
+
+  deleteProduct: async (id) => {
+    const product = get().products.find(p => p.id === id);
+    set(state => ({ products: state.products.filter(p => p.id !== id) }));
+    await deleteProductDoc(id);
+    if (product) get().addLog('product_deleted' as LogAction, `Product "${product.name}" deleted`);
+  },
+
+  // ─── Stock ────────────────────────────────────────────────────────────────
+  stockIn: async (movementData) => {
+    const movement: StockMovement = {
+      ...movementData,
+      id: uuidv4(),
+      type: 'stock_in',
+      timestamp: new Date().toISOString(),
+    };
+    let newQty = 0;
+    set(state => {
+      const updatedProducts = state.products.map(p => {
+        if (p.id === movement.productId) {
+          newQty = p.quantity + movement.quantity;
+          return { ...p, quantity: newQty, updatedAt: new Date().toISOString() };
+        }
+        return p;
+      });
+      return { stockMovements: [...state.stockMovements, movement], products: updatedProducts };
+    });
+    await saveStockMovementDoc(movement);
+    await updateProductDoc(movement.productId, { quantity: newQty, updatedAt: new Date().toISOString() });
+    const product = get().products.find(p => p.id === movementData.productId);
+    get().addLog('stock_added', `Stock in: ${movement.quantity} units of ${product?.name}`, { movementId: movement.id });
+  },
+
+  stockOut: async (movementData) => {
+    const movement: StockMovement = {
+      ...movementData,
+      id: uuidv4(),
+      type: 'stock_out',
+      timestamp: new Date().toISOString(),
+    };
+    let newQty = 0;
+    set(state => {
+      const updatedProducts = state.products.map(p => {
+        if (p.id === movement.productId) {
+          newQty = Math.max(0, p.quantity - movement.quantity);
+          return { ...p, quantity: newQty, updatedAt: new Date().toISOString() };
+        }
+        return p;
+      });
+      return { stockMovements: [...state.stockMovements, movement], products: updatedProducts };
+    });
+    await saveStockMovementDoc(movement);
+    await updateProductDoc(movement.productId, { quantity: newQty, updatedAt: new Date().toISOString() });
+    const product = get().products.find(p => p.id === movementData.productId);
+    get().addLog('stock_removed', `Stock out: ${movement.quantity} units of ${product?.name}`, { movementId: movement.id });
+    const updatedProduct = get().products.find(p => p.id === movementData.productId);
+    if (updatedProduct && updatedProduct.quantity <= updatedProduct.minimumStockLevel) {
+      await get().addNotification({
+        type: 'low_stock', title: 'Low Stock Alert',
+        message: `${updatedProduct.name} is now at ${updatedProduct.quantity} units (min: ${updatedProduct.minimumStockLevel})`,
+        productId: updatedProduct.id,
+      });
+    }
+  },
+
+  // ─── Transfers ────────────────────────────────────────────────────────────
+  createTransfer: async (transferData) => {
+    const transfer: Transfer = {
+      ...transferData,
+      id: uuidv4(),
+      timestamp: new Date().toISOString(),
+      status: 'in_transit',
+    };
+    let newQty = 0;
+    const movementId = uuidv4();
+    set(state => {
+      const updatedProducts = state.products.map(p => {
+        if (p.id === transfer.productId) {
+          newQty = Math.max(0, p.quantity - transfer.quantity);
+          return { ...p, quantity: newQty, updatedAt: new Date().toISOString() };
+        }
+        return p;
+      });
+      const outMovement: StockMovement = {
+        id: movementId, productId: transfer.productId, type: 'transfer_out',
+        quantity: transfer.quantity, locationId: transfer.fromLocationId,
+        userId: transfer.userId, timestamp: new Date().toISOString(),
+      };
+      return {
+        transfers: [...state.transfers, transfer],
+        products: updatedProducts,
+        stockMovements: [...state.stockMovements, outMovement],
+      };
+    });
+    await saveTransferDoc(transfer);
+    await updateProductDoc(transfer.productId, { quantity: newQty, updatedAt: new Date().toISOString() });
+    await saveStockMovementDoc({
+      id: movementId, productId: transfer.productId, type: 'transfer_out',
+      quantity: transfer.quantity, locationId: transfer.fromLocationId,
+      userId: transfer.userId, timestamp: new Date().toISOString(),
+    });
+    const product = get().products.find(p => p.id === transferData.productId);
+    const fromLoc = get().locations.find(l => l.id === transferData.fromLocationId);
+    const toLoc = get().locations.find(l => l.id === transferData.toLocationId);
+    get().addLog('transfer_created', `Transfer: ${transfer.quantity} units of ${product?.name} from ${fromLoc?.name} to ${toLoc?.name}`);
+    await get().addNotification({ type: 'transfer', title: 'Transfer Initiated', message: `${transfer.quantity} units of ${product?.name} is en route to ${toLoc?.name}` });
+  },
+
+  completeTransfer: async (id) => {
+    const transfer = get().transfers.find(t => t.id === id);
+    if (!transfer) return;
+    const completedAt = new Date().toISOString();
+    const inMovementId = uuidv4();
+    let newQty = 0;
+    set(state => {
+      const updatedProducts = state.products.map(p => {
+        if (p.id === transfer.productId) {
+          newQty = p.quantity + transfer.quantity;
+          return { ...p, quantity: newQty, locationId: transfer.toLocationId, updatedAt: new Date().toISOString() };
+        }
+        return p;
+      });
+      const inMovement: StockMovement = {
+        id: inMovementId, productId: transfer.productId, type: 'transfer_in',
+        quantity: transfer.quantity, locationId: transfer.toLocationId,
+        userId: transfer.userId, timestamp: completedAt,
+      };
+      return {
+        transfers: state.transfers.map(t => t.id === id ? { ...t, status: 'completed', completedAt } : t),
+        products: updatedProducts,
+        stockMovements: [...state.stockMovements, inMovement],
+      };
+    });
+    await updateTransferDoc(id, { status: 'completed', completedAt });
+    await updateProductDoc(transfer.productId, { quantity: newQty, locationId: transfer.toLocationId, updatedAt: new Date().toISOString() });
+    await saveStockMovementDoc({
+      id: inMovementId, productId: transfer.productId, type: 'transfer_in',
+      quantity: transfer.quantity, locationId: transfer.toLocationId,
+      userId: transfer.userId, timestamp: completedAt,
+    });
+    const product = get().products.find(p => p.id === transfer.productId);
+    get().addLog('transfer_completed', `Transfer completed: ${transfer.quantity} units of ${product?.name}`);
+  },
+
+  // ─── POS ──────────────────────────────────────────────────────────────────
+  createPOSSale: async (saleData) => {
+    const sale: POSSale = { ...saleData, id: uuidv4(), timestamp: new Date().toISOString() };
+    set(state => ({ posSales: [...state.posSales, sale] }));
+    await saveSaleDoc(sale);
+    for (const item of sale.items) {
+      await get().stockOut({
+        productId: item.productId, quantity: item.quantity,
+        locationId: sale.locationId, userId: sale.userId,
+        reason: 'POS Sale', customerName: sale.customerName,
+      });
+    }
+    get().addLog('pos_sale', `POS Sale: ₹${sale.totalAmount.toFixed(2)}`, { saleId: sale.id });
+  },
+
+  // ─── Notifications ────────────────────────────────────────────────────────
+  markNotificationRead: async (id) => {
+    set(state => ({
+      notifications: state.notifications.map(n => n.id === id ? { ...n, read: true } : n),
+    }));
+    await updateNotificationDoc(id, { read: true });
+  },
+
+  markAllNotificationsRead: async () => {
+    const { notifications } = get();
+    set(state => ({ notifications: state.notifications.map(n => ({ ...n, read: true })) }));
+    await Promise.all(notifications.filter(n => !n.read).map(n => updateNotificationDoc(n.id, { read: true })));
+  },
+
+  addNotification: async (notifData) => {
+    const notification: Notification = {
+      ...notifData,
+      id: uuidv4(),
+      timestamp: new Date().toISOString(),
+      read: false,
+    };
+    set(state => ({ notifications: [notification, ...state.notifications].slice(0, 50) }));
+    await saveNotificationDoc(notification);
+  },
+
+  // ─── Logs ─────────────────────────────────────────────────────────────────
+  addLog: (action, description, metadata) => {
+    const { currentUser } = get();
+    // Strip undefined from metadata to prevent Firestore errors
+    const cleanMetadata = metadata
+      ? (stripUndefined(metadata as Record<string, unknown>) as Record<string, unknown>)
+      : undefined;
+    const log: Log = {
+      id: uuidv4(),
+      action,
+      userId: currentUser?.id || 'system',
+      userName: currentUser?.name || 'System',
+      description,
+      metadata: cleanMetadata,
+      timestamp: new Date().toISOString(),
+    };
+    set(state => ({ logs: [log, ...state.logs].slice(0, 1000) }));
+    saveLogDoc(log).catch(err => console.error('[addLog] Firestore error:', err));
+  },
+
+  resetLogs: async () => {
+    await deleteAllLogDocs();
+    set({ logs: [] });
+    const { currentUser } = get();
+    const log: Log = {
+      id: uuidv4(),
+      action: 'user_edited',
+      userId: currentUser?.id || 'system',
+      userName: currentUser?.name || 'System',
+      description: 'Activity logs reset by admin',
+      timestamp: new Date().toISOString(),
+    };
+    set(state => ({ logs: [log] }));
+    saveLogDoc(log).catch(err => console.error('[addLog] Firestore error:', err));
+  },
+
+  // ─── Settings ─────────────────────────────────────────────────────────────
+  updateSettings: async (newSettings) => {
+    set(state => ({ settings: { ...state.settings, ...newSettings } }));
+    const updated = get().settings;
+    await saveSettingsDoc(updated);
+  },
+
+  // ─── UI ───────────────────────────────────────────────────────────────────
+  setSidebarOpen: (open) => set({ sidebarOpen: open }),
+  setActiveTab: (tab) => set({ activeTab: tab }),
+  setTheme: (theme) => {
+    set(state => ({ settings: { ...state.settings, theme } }));
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    try {
+      localStorage.setItem('koushik-theme', theme);
+    } catch { /* ignore */ }
+    saveSettingsDoc({ ...get().settings, theme }).catch(console.error);
+  },
+}));

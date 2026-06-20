@@ -24,6 +24,7 @@ const NAV_ITEMS = [
 
 const STAFF_NAV = ['dashboard', 'inventory', 'stock-in', 'stock-out', 'pos', 'expiry'];
 const MANAGER_NAV = ['dashboard', 'inventory', 'stock-in', 'stock-out', 'transfers', 'pos', 'expiry', 'reports', 'logs'];
+const ADMIN_NAV = ['dashboard', 'inventory', 'stock-in', 'stock-out', 'transfers', 'pos', 'expiry', 'reports', 'logs', 'locations', 'users', 'settings'];
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -38,6 +39,8 @@ export default function Layout({ children }: LayoutProps) {
 
   const allowedTabs = currentUser?.role === 'super_admin'
     ? NAV_ITEMS.map(n => n.id)
+    : currentUser?.role === 'admin'
+    ? ADMIN_NAV
     : currentUser?.role === 'store_manager'
     ? MANAGER_NAV
     : STAFF_NAV;

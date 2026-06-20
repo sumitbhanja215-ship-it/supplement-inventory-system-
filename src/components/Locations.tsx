@@ -9,6 +9,8 @@ export default function Locations() {
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const isSuperAdmin = currentUser?.role === 'super_admin';
+  const isAdmin = currentUser?.role === 'admin';
+  const canManageLocations = isSuperAdmin || isAdmin;
 
   const handleAdd = () => {
     if (newName.trim()) {
@@ -38,7 +40,7 @@ export default function Locations() {
   return (
     <div className="space-y-6 pb-20 lg:pb-6">
       {/* Add Location */}
-      {isSuperAdmin && (
+      {canManageLocations && (
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-5">
           <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-4 flex items-center gap-2">
             <Plus size={16} className="text-blue-600 dark:text-blue-400" />
@@ -100,7 +102,7 @@ export default function Locations() {
                     </div>
                   </div>
 
-                  {isSuperAdmin && (
+                  {canManageLocations && (
                     <div className="flex gap-1">
                       {isEditing ? (
                         <>

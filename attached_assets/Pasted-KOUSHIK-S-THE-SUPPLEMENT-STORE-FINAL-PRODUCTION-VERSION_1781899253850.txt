@@ -1,0 +1,306 @@
+KOUSHIK'S THE SUPPLEMENT STORE
+FINAL PRODUCTION VERSION
+
+SYSTEM RESET
+
+Remove all demo users, demo credentials, seed data, sample data, mock data, hardcoded users and test accounts.
+
+DELETE:
+
+- admin@koushikstore.com
+- manager@koushikstore.com
+- staff@koushikstore.com
+- Koushik
+- Rahul Manager
+- Priya Staff
+- Any demo account
+
+KEEP ONLY:
+
+Name: SUMIT
+Email: bhanja.sumit94.sb@gmail.com
+Password: Sumit123
+PIN: 123
+Role: super_admin
+Status: active
+
+AUTHENTICATION
+
+Use Firebase Authentication only.
+Use Firestore only.
+
+Remove:
+
+- Demo Login
+- Hardcoded Login
+- Mock Authentication
+- Sample Credentials
+- Test Users
+
+LOGIN PAGE
+
+Remove completely:
+
+Demo Credentials
+Admin Login Example
+Manager Login Example
+Staff Login Example
+
+Replace with:
+
+Secure Login
+
+Sign in using your assigned email and password.
+
+USER ROLES
+
+SUPER ADMIN (SUMIT)
+
+Permissions:
+
+✓ Full Access
+✓ Create Users
+✓ Edit Users
+✓ Delete Users
+✓ Create Admin
+✓ Create Store Manager
+✓ Create Staff
+✓ Inventory Management
+✓ Product Management
+✓ Categories
+✓ Brands
+✓ Suppliers
+✓ Locations
+✓ Transfers
+✓ Reports
+✓ Settings
+✓ Audit Logs
+✓ Reset Passwords
+
+Security:
+
+✓ Super Admin hidden from all other roles
+✓ Only SUMIT can view Super Admin accounts
+✓ Only SUMIT can edit Super Admin accounts
+✓ No one can delete SUMIT
+✓ No one can reset SUMIT password
+
+ADMIN
+
+Permissions:
+
+✓ Inventory Management
+✓ Product Management
+✓ Categories
+✓ Brands
+✓ Suppliers
+✓ Reports
+✓ Transfers
+✓ Create Store Manager
+✓ Create Staff
+
+Restrictions:
+
+✗ Cannot see Super Admin
+✗ Cannot edit Super Admin
+✗ Cannot delete Super Admin
+✗ Cannot access Settings
+
+STORE MANAGER
+
+Permissions:
+
+✓ Assigned Store Access
+✓ Stock In
+✓ Stock Out
+✓ Transfers
+✓ Reports
+
+Restrictions:
+
+✗ Cannot manage Admins
+✗ Cannot manage Super Admin
+
+STAFF
+
+Permissions:
+
+✓ Inventory View
+✓ Stock In
+✓ Stock Out
+✓ POS Billing
+
+Restrictions:
+
+✗ Cannot manage users
+✗ Cannot access settings
+✗ Cannot access reports
+
+USERS PAGE
+
+Remove completely:
+
+- Role Permissions Section
+- Super Admin Permission Card
+- Store Manager Permission Card
+- Staff Permission Card
+
+Show only:
+
+- User List
+- Add User
+- Edit User
+- Delete User
+- User Statistics
+
+POS BILLING
+
+Location filter must work correctly.
+
+Locations:
+
+- Warehouse Belghoria
+- Salt Lake Store
+- Dharmatola Store
+
+When location changes:
+
+✓ Show only products available in selected location
+✓ Reload products automatically
+✓ Clear cart automatically
+✓ Prevent selling stock from another location
+
+Display:
+
+- Product Name
+- Brand
+- Available Stock
+- Selling Price
+
+If no stock:
+
+"No products available in this location"
+
+TRANSFER MODULE
+
+Workflow:
+
+1. Select From Location
+2. Show products from selected location only
+3. Hide products with zero stock
+
+Display:
+
+- Product Name
+- Stock Quantity
+- Batch Number
+- Expiry Date
+
+Validation:
+
+Prevent transfer if quantity exceeds available stock.
+
+Show:
+
+"Insufficient stock available"
+
+After transfer:
+
+✓ Reduce stock from source location
+✓ Increase stock at destination location
+✓ Create transfer log
+
+PRODUCT MANAGEMENT
+
+Fields:
+
+- Product Name
+- Brand Name
+- Category
+- Batch Number
+- Manufacturing Date
+- Expiry Date
+- Purchase Price
+- Selling Price
+- Quantity
+- Minimum Stock Level
+- Supplier
+- Notes
+
+REMOVE COMPLETELY
+
+✗ Barcode Scanner
+✗ Barcode Module
+✗ QR Scanner
+✗ Camera Scanner
+✗ Barcode Buttons
+✗ Barcode Pages
+✗ Barcode Fields
+✗ Barcode Search
+✗ QR Code Features
+
+INVENTORY
+
+Features:
+
+✓ Add Product
+✓ Edit Product
+✓ Delete Product
+✓ Stock In
+✓ Stock Out
+✓ Transfer Stock
+✓ Low Stock Alerts
+✓ Expiry Alerts
+
+DASHBOARD
+
+Real-time:
+
+✓ Total Products
+✓ Total Inventory Value
+✓ Low Stock Alerts
+✓ Expiring Products
+✓ Recent Activity
+
+UI
+
+✓ White Background
+✓ Light Mode
+✓ Dark Mode
+✓ Mobile Responsive
+✓ Desktop Responsive
+✓ Fast Loading
+✓ Professional Design
+
+DATABASE
+
+Collections:
+
+users
+products
+categories
+brands
+suppliers
+locations
+inventory
+transfers
+sales
+auditLogs
+settings
+
+No Demo Collections
+No Sample Data
+No Mock Users
+
+FINAL RESULT
+
+Only SUMIT exists as Super Admin.
+
+Admins, Managers and Staff can be created later by SUMIT.
+
+No Demo Credentials.
+No Demo Users.
+No Barcode System.
+No QR System.
+
+Production Mode Enabled.

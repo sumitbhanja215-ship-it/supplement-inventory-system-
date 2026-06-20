@@ -16,11 +16,14 @@ export default function StockIn() {
   const recentMovements = stockMovements.filter(m => m.type === 'stock_in').slice(0, 10);
 
   const selectedProduct = products.find(p => p.id === form.productId);
+  const filteredProducts = form.locationId
+    ? products.filter(p => p.locationId === form.locationId)
+    : products;
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!form.productId) e.productId = 'Select a product';
     if (!form.locationId) e.locationId = 'Select a location';
+    if (!form.productId) e.productId = 'Select a product';
     if (!form.quantity || Number(form.quantity) <= 0) e.quantity = 'Valid quantity required';
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -73,11 +76,21 @@ export default function StockIn() {
             )}
 
             <div>
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Location <span className="text-red-500">*</span></label>
+              <select value={form.locationId} onChange={e => setForm(f => ({ ...f, locationId: e.target.value, productId: '' }))}
+                className={`w-full px-3 py-2.5 border rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500 ${errors.locationId ? 'border-red-400' : 'border-gray-200 dark:border-gray-700'}`}>
+                <option value="">Select location...</option>
+                {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+              {errors.locationId && <p className="text-xs text-red-500 mt-0.5">{errors.locationId}</p>}
+            </div>
+
+            <div>
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Product <span className="text-red-500">*</span></label>
               <select value={form.productId} onChange={e => setForm(f => ({ ...f, productId: e.target.value }))}
                 className={`w-full px-3 py-2.5 border rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500 ${errors.productId ? 'border-red-400' : 'border-gray-200 dark:border-gray-700'}`}>
-                <option value="">Select product...</option>
-                {products.map(p => <option key={p.id} value={p.id}>{p.name} (Qty: {p.quantity})</option>)}
+                <option value="">{form.locationId ? 'Select product...' : 'Choose a location first'}</option>
+                {form.locationId && filteredProducts.map(p => <option key={p.id} value={p.id}>{p.name} (Qty: {p.quantity})</option>)}
               </select>
               {errors.productId && <p className="text-xs text-red-500 mt-0.5">{errors.productId}</p>}
             </div>
@@ -91,15 +104,6 @@ export default function StockIn() {
             )}
 
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Location <span className="text-red-500">*</span></label>
-                <select value={form.locationId} onChange={e => setForm(f => ({ ...f, locationId: e.target.value }))}
-                  className={`w-full px-3 py-2.5 border rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500 ${errors.locationId ? 'border-red-400' : 'border-gray-200 dark:border-gray-700'}`}>
-                  <option value="">Select location...</option>
-                  {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                </select>
-                {errors.locationId && <p className="text-xs text-red-500 mt-0.5">{errors.locationId}</p>}
-              </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5">Quantity <span className="text-red-500">*</span></label>
                 <input type="number" min="1" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}

@@ -1,4 +1,4 @@
-export type UserRole = 'super_admin' | 'store_manager' | 'staff';
+export type UserRole = 'super_admin' | 'admin' | 'store_manager' | 'staff';
 export type Theme = 'light' | 'dark';
 
 export interface User {
@@ -110,6 +110,7 @@ export type LogAction =
   | 'logout'
   | 'user_created'
   | 'user_edited'
+  | 'user_deleted'
   | 'location_created'
   | 'location_renamed'
   | 'location_deleted'

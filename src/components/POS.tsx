@@ -9,11 +9,19 @@ export default function POS() {
   const [locationId, setLocationId] = useState(locations[0]?.id || '');
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<POSSaleItem[]>([]);
+
+  const handleLocationChange = (newLocId: string) => {
+    setLocationId(newLocId);
+    setCart([]);
+    setSearch('');
+  };
+
+  const locationProducts = products.filter(p => p.locationId === locationId);
   const [customerName, setCustomerName] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const filteredProducts = products.filter(p => {
+  const filteredProducts = locationProducts.filter(p => {
     if (!search) return true;
     const brand = brands.find(b => b.id === p.brandId)?.name || '';
     return p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -89,7 +97,7 @@ export default function POS() {
           </div>
           <div className="ml-auto text-right">
             <p className="text-purple-200 text-xs">Location</p>
-            <select value={locationId} onChange={e => setLocationId(e.target.value)}
+            <select value={locationId} onChange={e => handleLocationChange(e.target.value)}
               className="bg-white/20 text-white text-sm rounded-lg px-2 py-1 border border-white/30 focus:outline-none">
               {locations.map(l => <option key={l.id} value={l.id} className="text-gray-900">{l.name}</option>)}
             </select>
@@ -121,7 +129,11 @@ export default function POS() {
           </div>
           <div className="divide-y divide-gray-50 dark:divide-gray-800 max-h-96 overflow-y-auto">
             {filteredProducts.length === 0 ? (
-              <div className="text-center py-8 text-gray-400 text-sm">No products found</div>
+              <div className="text-center py-8 text-gray-400 text-sm">
+                {locationProducts.length === 0
+                  ? 'No products available in this location'
+                  : 'No products found'}
+              </div>
             ) : filteredProducts.map(p => {
               const inCart = cart.find(i => i.productId === p.id);
               const brand = brands.find(b => b.id === p.brandId)?.name;
