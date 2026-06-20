@@ -1,0 +1,297 @@
+# Critical Bug Fix Request – Audit Logs & Authentication
+
+Please review the codebase and implement fixes for the following three critical issues.
+
+## Tech Stack
+
+Frontend: React / Next.js (determine from project)
+Backend: Node.js / Express (determine from project)
+Database: Firebase / Firestore (currently used for audit logs and user management)
+
+---
+
+# Issue 1: Infinite Loop Causing Status API Spam
+
+## Current Behavior
+
+The frontend is repeatedly calling the user status update endpoint.
+
+As a result:
+
+* Audit logs are being flooded.
+* Hundreds of duplicate entries are created.
+* "user_status_online" is written repeatedly for the same user.
+* Requests occur multiple times per second.
+
+Example:
+
+user_status_online
+user_status_online
+user_status_online
+user_status_online
+
+for the same user session.
+
+---
+
+## Required Investigation
+
+Search the frontend for:
+
+* useEffect
+* setInterval
+* status update functions
+* heartbeat logic
+* online/offline tracking
+* auth listeners
+* route listeners
+
+Look specifically for:
+
+* Missing dependency arrays
+* Effects re-running on every render
+* Multiple auth listeners being registered
+* Event listeners being attached repeatedly
+* Intervals being recreated without cleanup
+
+---
+
+## Required Fix
+
+User status should only update:
+
+### Option A
+
+Once when user successfully logs in.
+
+### Option B
+
+Controlled heartbeat every 30 seconds.
+
+Example:
+
+```js
+useEffect(() => {
+  if (!user) return;
+
+  const interval = setInterval(() => {
+    updateUserStatus();
+  }, 30000);
+
+  return () => clearInterval(interval);
+}, [user?.uid]);
+```
+
+Requirements:
+
+* Only one interval active.
+* Cleanup must occur on unmount.
+* No duplicate listeners.
+* No repeated audit logs for same state.
+
+---
+
+# Issue 2: Static Audit Log Timestamps
+
+## Current Behavior
+
+Audit logs are being generated with the exact same timestamp.
+
+Example:
+
+01:20:41 PM
+01:20:41 PM
+01:20:41 PM
+01:20:41 PM
+
+even when entries are created at different moments.
+
+---
+
+## Required Investigation
+
+Review:
+
+* Audit log service
+* Audit log controller
+* Firestore write functions
+* Timestamp generation logic
+
+Check whether timestamp is defined globally.
+
+Example of incorrect pattern:
+
+```js
+const timestamp = new Date();
+
+export function createAuditLog() {
+  save(timestamp);
+}
+```
+
+This would reuse the same timestamp forever.
+
+---
+
+## Required Fix
+
+Timestamp must be generated inside the function.
+
+Example:
+
+```js
+export async function createAuditLog(data) {
+  await addDoc(collection(db, "auditLogs"), {
+    ...data,
+    createdAt: serverTimestamp(),
+  });
+}
+```
+
+Requirements:
+
+* Use Firestore serverTimestamp() whenever possible.
+* Every audit log receives a fresh timestamp.
+* Timestamps reflect actual creation time.
+
+---
+
+# Issue 3: User Logged Out After Page Refresh
+
+## Current Behavior
+
+User successfully logs in.
+
+After browser refresh:
+
+* User is redirected to login.
+* Session is lost.
+* Authentication state is not restored.
+
+---
+
+## Required Investigation
+
+Review:
+
+* Firebase auth initialization
+* Auth provider
+* Auth context
+* Route guards
+* Protected routes
+* Login logic
+
+Search for:
+
+* signOut()
+* navigate("/login")
+* router.push("/login")
+* auth state listeners
+
+---
+
+## Required Fix
+
+Persist authentication state.
+
+### Firebase Auth
+
+Use:
+
+```js
+import {
+  setPersistence,
+  browserLocalPersistence
+} from "firebase/auth";
+
+await setPersistence(auth, browserLocalPersistence);
+```
+
+---
+
+### Auth Initialization
+
+Ensure application waits for Firebase to restore auth state.
+
+Example:
+
+```js
+const [authInitialized, setAuthInitialized] = useState(false);
+
+useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    setCurrentUser(user);
+    setAuthInitialized(true);
+  });
+
+  return unsubscribe;
+}, []);
+```
+
+Protected routes:
+
+```js
+if (!authInitialized) {
+  return <LoadingScreen />;
+}
+
+if (!currentUser) {
+  return <Navigate to="/login" />;
+}
+
+return children;
+```
+
+Requirements:
+
+* Refresh page → stay logged in.
+* Reopen browser → stay logged in.
+* Logout only when user clicks Logout.
+* No automatic logout during auth restoration.
+
+---
+
+# Additional Audit Log Protection
+
+Prevent duplicate audit log entries.
+
+Before creating a new log:
+
+Check if same:
+
+* userId
+* action
+* description
+
+exists within previous 10 seconds.
+
+If duplicate found:
+
+Skip insert.
+
+Example:
+
+```js
+if (isDuplicateLog()) {
+  return;
+}
+```
+
+---
+
+# Deliverables
+
+Please provide:
+
+1. Files modified.
+2. Root cause of Issue 1.
+3. Root cause of Issue 2.
+4. Root cause of Issue 3.
+5. Code changes applied.
+6. Verification steps performed.
+7. Confirmation that:
+
+   * Audit log spam is fixed.
+   * Dynamic timestamps are fixed.
+   * Session persistence works after refresh.
+   * Duplicate logs are prevented.

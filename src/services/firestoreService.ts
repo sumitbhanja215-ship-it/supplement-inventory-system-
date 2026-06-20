@@ -352,13 +352,14 @@ export async function isFirestoreSeeded(): Promise<boolean> {
 // ─── Batch seed ──────────────────────────────────────────────────────────────
 
 export async function batchSeed(
-  items: Array<{ col: string; id: string; data: Record<string, unknown> }>
+  items: Array<{ col: string; id: string; data: Record<string, unknown> }>,
+  merge = true,
 ): Promise<void> {
   const CHUNK = 400;
   for (let i = 0; i < items.length; i += CHUNK) {
     const batch = writeBatch(db);
     for (const item of items.slice(i, i + CHUNK)) {
-      batch.set(doc(db, item.col, item.id), stripUndefined(item.data));
+      batch.set(doc(db, item.col, item.id), stripUndefined(item.data), { merge });
     }
     await batch.commit();
   }

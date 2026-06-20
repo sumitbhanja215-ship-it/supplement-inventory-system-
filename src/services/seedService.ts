@@ -130,37 +130,6 @@ export async function seedFirestoreIfEmpty(): Promise<void> {
     return;
   }
 
-  // Step 3: ALWAYS write user profiles — this is idempotent (setDoc overwrites)
-  // This ensures manager/staff profiles exist even if seeding was partially done before.
-  const userDocs = DEFAULT_AUTH_USERS
-    .filter(u => uidMap[u.email])
-    .map(u => ({
-      col: 'users',
-      id: uidMap[u.email],
-      data: {
-        name: u.name,
-        email: u.email,
-        password: u.password,
-        pin: u.pin,
-        role: u.role,
-        assignedLocation: u.assignedLocation,
-        createdAt: new Date().toISOString(),
-        status: 'offline',
-        lastActive: null,
-        lastSeen: null,
-        sessionId: null,
-      },
-    }));
-
-  try {
-    await batchSeed(userDocs);
-    console.log('[Seed] User profiles written:', userDocs.map(d => d.data.email).join(', '));
-  } catch (err) {
-    console.error('[Seed] Failed to write user profiles — check Firestore rules:', err);
-    await signOut(auth);
-    return;
-  }
-
   // Step 4: Check if the rest of the data (products, categories, etc.) is already seeded
   const seeded = await isFirestoreSeeded();
   if (seeded) {
