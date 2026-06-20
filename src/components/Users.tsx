@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { Users as UsersIcon, Plus, Edit2, Trash2, Shield, X, Eye, EyeOff, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import { Users as UsersIcon, Plus, Edit2, Trash2, X, Eye, EyeOff, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
 import { formatDateTime, getRoleBadgeColor, getRoleLabel } from '../utils/helpers';
 import { saveUserDoc } from '../services/firestoreService';
-import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
 import type { UserRole, User } from '../types';
 

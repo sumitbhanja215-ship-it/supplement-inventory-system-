@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { FileText, Download, Search, Trash2 } from 'lucide-react';
-import { formatDateTime } from '../utils/helpers';
+import { formatDateTime, getRoleLabel } from '../utils/helpers';
 import { format } from 'date-fns';
 import type { LogAction } from '../types';
 
@@ -16,12 +16,13 @@ const ACTION_LABELS: Record<LogAction, string> = {
   login: 'Login',
   logout: 'Logout',
   user_created: 'User Created',
-  user_edited: 'User Edited',
+  user_edited: 'User Updated',
   user_deleted: 'User Deleted',
   location_created: 'Location Created',
   location_renamed: 'Location Renamed',
   location_deleted: 'Location Deleted',
   pos_sale: 'POS Sale',
+  logs_reset: 'Audit Logs Reset',
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -41,6 +42,7 @@ const ACTION_COLORS: Record<string, string> = {
   location_renamed: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300',
   location_deleted: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
   pos_sale: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+  logs_reset: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
 };
 
 export default function AuditLogs() {
@@ -57,8 +59,8 @@ export default function AuditLogs() {
 
   const exportCSV = () => {
     const data = [
-      ['Timestamp', 'User', 'Action', 'Description'],
-      ...filtered.map(l => [formatDateTime(l.timestamp), l.userName, ACTION_LABELS[l.action] || l.action, l.description])
+      ['Timestamp', 'User', 'Role', 'Action', 'Description'],
+      ...filtered.map(l => [formatDateTime(l.timestamp), l.userName, getRoleLabel(l.userRole), ACTION_LABELS[l.action] || l.action, l.description])
     ];
     const csv = data.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -136,7 +138,7 @@ export default function AuditLogs() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
-                {['Timestamp', 'User', 'Action', 'Description'].map(h => (
+                {['Timestamp', 'User', 'Role', 'Action', 'Description'].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">{h}</th>
                 ))}
               </tr>
@@ -144,7 +146,7 @@ export default function AuditLogs() {
             <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="text-center text-gray-400 py-12">
+                  <td colSpan={5} className="text-center text-gray-400 py-12">
                     <FileText size={32} className="mx-auto mb-2 opacity-30" />
                     No logs found
                   </td>
@@ -154,6 +156,9 @@ export default function AuditLogs() {
                   <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDateTime(log.timestamp)}</td>
                   <td className="px-4 py-3">
                     <span className="text-sm font-medium text-gray-900 dark:text-white">{log.userName}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{getRoleLabel(log.userRole)}</span>
                   </td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ACTION_COLORS[log.action] || 'bg-gray-100 text-gray-700'}`}>
@@ -182,7 +187,7 @@ export default function AuditLogs() {
                     </span>
                   </div>
                   <p className="text-sm text-gray-700 dark:text-gray-300">{log.description}</p>
-                  <p className="text-xs text-gray-400 mt-1">{log.userName} • {formatDateTime(log.timestamp)}</p>
+                  <p className="text-xs text-gray-400 mt-1">{log.userName} • {getRoleLabel(log.userRole)} • {formatDateTime(log.timestamp)}</p>
                 </div>
               </div>
             </div>

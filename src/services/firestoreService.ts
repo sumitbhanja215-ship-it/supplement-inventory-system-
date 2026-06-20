@@ -1,6 +1,6 @@
 import {
   collection, doc, setDoc, updateDoc, deleteDoc,
-  query, orderBy, serverTimestamp, Timestamp, getDocs, where,
+  query, serverTimestamp, Timestamp, getDocs, where,
   writeBatch, getDoc,
 } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -139,6 +139,7 @@ export function docToLog(id: string, data: Record<string, unknown>): Log {
     action: data.action as LogAction,
     userId: data.userId as string,
     userName: data.userName as string,
+    userRole: (data.userRole as string) || '',
     description: data.description as string,
     metadata: data.metadata as Record<string, unknown> | undefined,
     timestamp: toDate(data.timestamp),

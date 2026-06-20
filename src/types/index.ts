@@ -114,13 +114,15 @@ export type LogAction =
   | 'location_created'
   | 'location_renamed'
   | 'location_deleted'
-  | 'pos_sale';
+  | 'pos_sale'
+  | 'logs_reset';
 
 export interface Log {
   id: string;
   action: LogAction;
   userId: string;
   userName: string;
+  userRole: string;
   description: string;
   metadata?: Record<string, unknown>;
   timestamp: string;

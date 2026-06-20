@@ -19,6 +19,7 @@ export function useFirestoreSync() {
   } = useStore();
 
   const dataUnsubs = useRef<Array<() => void>>([]);
+  const loggedInUserId = useRef<string | null>(null);
 
   const startDataListeners = () => {
     dataUnsubs.current.forEach(u => u());
@@ -115,7 +116,11 @@ export function useFirestoreSync() {
             userProfile.lastLogin = new Date().toISOString();
             console.log('[Auth] Profile loaded:', userProfile.name, '/', userProfile.role);
             setCurrentUserFromAuth(userProfile);
-            useStore.getState().addLog('login', `${userProfile.name} logged in`, { userId: userProfile.id });
+            // Only log once per session per user
+            if (loggedInUserId.current !== firebaseUser.uid) {
+              loggedInUserId.current = firebaseUser.uid;
+              useStore.getState().addLog('login', `${userProfile.name} logged in`, { userId: userProfile.id });
+            }
             // Start real-time listeners only after profile is confirmed
             startDataListeners();
           } else {
@@ -132,6 +137,7 @@ export function useFirestoreSync() {
         }
       } else {
         console.log('[Auth] User signed out');
+        loggedInUserId.current = null;
         stopDataListeners();
         setCurrentUserFromAuth(null);
         _setAuthLoading(false);

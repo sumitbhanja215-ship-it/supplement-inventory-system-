@@ -114,6 +114,7 @@ interface AppState {
   // Log Actions
   addLog: (action: LogAction, description: string, metadata?: Record<string, unknown>) => void;
   resetLogs: () => Promise<void>;
+  logDebounceMap: Map<string, number>;
 
   // Settings Actions
   updateSettings: (settings: Partial<AppSettings>) => Promise<void>;
@@ -139,6 +140,7 @@ export const useStore = create<AppState>()((set, get) => ({
   logs: [],
   notifications: [],
   posSales: [],
+  logDebounceMap: new Map(),
   settings: {
     storeName: "KOUSHIK'S THE SUPPLEMENT STORE",
     currency: '₹',
@@ -196,7 +198,7 @@ export const useStore = create<AppState>()((set, get) => ({
   logout: async () => {
     const { currentUser } = get();
     if (currentUser) {
-      get().addLog('logout', `${currentUser.name} logged out`);
+      get().addLog('logout', `${currentUser.name} logged out from system`);
     }
     await signOut(auth);
     set({ currentUser: null, isAuthenticated: false, activeTab: 'dashboard' });
@@ -263,7 +265,9 @@ export const useStore = create<AppState>()((set, get) => ({
     set(state => ({
       users: state.users.map(u => u.id === id ? { ...u, ...data } : u),
     }));
-    get().addLog('user_edited', 'User updated', { userId: id });
+    const { currentUser } = get();
+    const user = get().users.find(u => u.id === id);
+    get().addLog('user_edited', `User profile updated by ${currentUser?.name || 'Admin'}`, { userId: id, userName: user?.name });
   },
 
   deleteUser: async (id) => {
@@ -532,8 +536,18 @@ export const useStore = create<AppState>()((set, get) => ({
 
   // ─── Logs ─────────────────────────────────────────────────────────────────
   addLog: (action, description, metadata) => {
-    const { currentUser } = get();
-    // Strip undefined from metadata to prevent Firestore errors
+    const { currentUser, logDebounceMap } = get();
+    const debounceKey = `${currentUser?.id || 'system'}-${action}-${description}`;
+    const now = Date.now();
+    const lastLogTime = logDebounceMap.get(debounceKey);
+    if (lastLogTime && now - lastLogTime < 5000) {
+      return;
+    }
+    set(state => {
+      const newMap = new Map(state.logDebounceMap);
+      newMap.set(debounceKey, now);
+      return { logDebounceMap: newMap };
+    });
     const cleanMetadata = metadata
       ? (stripUndefined(metadata as Record<string, unknown>) as Record<string, unknown>)
       : undefined;
@@ -542,6 +556,7 @@ export const useStore = create<AppState>()((set, get) => ({
       action,
       userId: currentUser?.id || 'system',
       userName: currentUser?.name || 'System',
+      userRole: currentUser?.role || 'system',
       description,
       metadata: cleanMetadata,
       timestamp: new Date().toISOString(),
@@ -552,17 +567,17 @@ export const useStore = create<AppState>()((set, get) => ({
 
   resetLogs: async () => {
     await deleteAllLogDocs();
-    set({ logs: [] });
     const { currentUser } = get();
     const log: Log = {
       id: uuidv4(),
-      action: 'user_edited',
+      action: 'logs_reset',
       userId: currentUser?.id || 'system',
       userName: currentUser?.name || 'System',
-      description: 'Activity logs reset by admin',
+      userRole: currentUser?.role || 'system',
+      description: 'All audit logs reset by Super Admin',
       timestamp: new Date().toISOString(),
     };
-    set(state => ({ logs: [log] }));
+    set({ logs: [log] });
     saveLogDoc(log).catch(err => console.error('[addLog] Firestore error:', err));
   },
 
