@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { Users as UsersIcon, Plus, Edit2, Trash2, X, Eye, EyeOff, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
-import { formatDateTime, getRoleBadgeColor, getRoleLabel } from '../utils/helpers';
+import { formatDateTime, getRoleBadgeColor, getRoleLabel, formatRelativeTime } from '../utils/helpers';
 import { saveUserDoc } from '../services/firestoreService';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -254,16 +254,22 @@ export default function UsersPage() {
             )}
             <div className="p-5">
               <div className="flex items-start gap-3 mb-4">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg shrink-0 ${
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg shrink-0 relative ${
                   user.role === 'super_admin' ? 'bg-gradient-to-br from-purple-500 to-purple-700' :
                   user.role === 'admin' ? 'bg-gradient-to-br from-indigo-500 to-indigo-700' :
                   user.role === 'store_manager' ? 'bg-gradient-to-br from-blue-500 to-blue-700' :
                   'bg-gradient-to-br from-green-500 to-green-700'
                 }`}>
                   {user.name.charAt(0).toUpperCase()}
+                  <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-white dark:border-gray-900 ${
+                    user.status === 'online' ? 'bg-green-500' : 'bg-gray-400'
+                  }`} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-900 dark:text-white truncate">{user.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-bold text-gray-900 dark:text-white truncate">{user.name}</p>
+                    <span className={`w-2 h-2 rounded-full ${user.status === 'online' ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                  </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email}</p>
                 </div>
               </div>
@@ -287,6 +293,24 @@ export default function UsersPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">PIN Login</span>
                     <span className="text-xs font-medium text-green-600 dark:text-green-400">✓ Enabled</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-400">Status</span>
+                  <span className={`text-xs font-medium ${user.status === 'online' ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                    {user.status === 'online' ? 'Online' : 'Offline'}
+                  </span>
+                </div>
+                {user.lastActive && user.status === 'online' && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Active</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{formatRelativeTime(user.lastActive)}</span>
+                  </div>
+                )}
+                {user.lastSeen && user.status !== 'online' && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Last Seen</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{formatRelativeTime(user.lastSeen)}</span>
                   </div>
                 )}
                 {user.lastLogin && (

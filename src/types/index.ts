@@ -12,6 +12,10 @@ export interface User {
   avatar?: string;
   createdAt: string;
   lastLogin?: string;
+  status?: 'online' | 'offline';
+  lastActive?: string;
+  lastSeen?: string;
+  sessionId?: string;
 }
 
 export interface Location {
@@ -115,7 +119,9 @@ export type LogAction =
   | 'location_renamed'
   | 'location_deleted'
   | 'pos_sale'
-  | 'logs_reset';
+  | 'logs_reset'
+  | 'user_status_online'
+  | 'user_status_offline';
 
 export interface Log {
   id: string;

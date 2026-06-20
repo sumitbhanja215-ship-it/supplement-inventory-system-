@@ -18,6 +18,8 @@ import {
   getUserByPin, saveSettingsDoc, stripUndefined,
   deleteAllLogDocs,
 } from '../services/firestoreService';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import type {
   User, Location, Category, Brand, Supplier, Product,
   StockMovement, Transfer, Log, Notification, POSSale,
@@ -47,6 +49,10 @@ interface AppState {
   settings: AppSettings;
   sidebarOpen: boolean;
   activeTab: string;
+
+  // Presence
+  heartbeatInterval: number | null;
+  sessionId: string | null;
 
   // Internal setters (used by onSnapshot listeners)
   _setUsers: (users: User[]) => void;
@@ -123,6 +129,12 @@ interface AppState {
   setSidebarOpen: (open: boolean) => void;
   setActiveTab: (tab: string) => void;
   setTheme: (theme: Theme) => void;
+
+  // Presence Actions
+  startHeartbeat: () => void;
+  stopHeartbeat: () => void;
+  markUserOnline: () => Promise<void>;
+  markUserOffline: () => Promise<void>;
 }
 
 export const useStore = create<AppState>()((set, get) => ({
@@ -149,6 +161,8 @@ export const useStore = create<AppState>()((set, get) => ({
   },
   sidebarOpen: false,
   activeTab: 'dashboard',
+  heartbeatInterval: null,
+  sessionId: null,
 
   // ─── Internal setters ──────────────────────────────────────────────────────
   _setUsers: (users) => set({ users }),
@@ -198,10 +212,12 @@ export const useStore = create<AppState>()((set, get) => ({
   logout: async () => {
     const { currentUser } = get();
     if (currentUser) {
+      await get().markUserOffline();
       get().addLog('logout', `${currentUser.name} logged out from system`);
     }
+    get().stopHeartbeat();
     await signOut(auth);
-    set({ currentUser: null, isAuthenticated: false, activeTab: 'dashboard' });
+    set({ currentUser: null, isAuthenticated: false, activeTab: 'dashboard', sessionId: null });
   },
 
   // ─── Users ────────────────────────────────────────────────────────────────
@@ -602,5 +618,70 @@ export const useStore = create<AppState>()((set, get) => ({
       localStorage.setItem('koushik-theme', theme);
     } catch { /* ignore */ }
     saveSettingsDoc({ ...get().settings, theme }).catch(console.error);
+  },
+
+  // ─── Presence ────────────────────────────────────────────────────────────
+  startHeartbeat: () => {
+    const { heartbeatInterval, currentUser, sessionId } = get();
+    if (heartbeatInterval) return;
+    if (!currentUser) return;
+
+    const interval = window.setInterval(async () => {
+      const { currentUser: cu, sessionId: sid } = get();
+      if (!cu) return;
+      try {
+        await updateDoc(doc(db, 'users', cu.id), {
+          status: 'online',
+          lastActive: new Date().toISOString(),
+          sessionId: sid || cu.sessionId || null,
+        });
+      } catch (err) {
+        console.warn('[Heartbeat] Failed to update presence:', err);
+      }
+    }, 30000);
+
+    set({ heartbeatInterval: interval });
+  },
+
+  stopHeartbeat: () => {
+    const { heartbeatInterval } = get();
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+      set({ heartbeatInterval: null });
+    }
+  },
+
+  markUserOnline: async () => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+    const sid = uuidv4();
+    set({ sessionId: sid });
+    try {
+      await updateDoc(doc(db, 'users', currentUser.id), {
+        status: 'online',
+        lastActive: new Date().toISOString(),
+        lastSeen: new Date().toISOString(),
+        sessionId: sid,
+      });
+      get().addLog('user_status_online', `${currentUser.name} is now online`, { userId: currentUser.id, sessionId: sid });
+    } catch (err) {
+      console.warn('[Presence] Failed to mark online:', err);
+    }
+  },
+
+  markUserOffline: async () => {
+    const { currentUser, sessionId } = get();
+    if (!currentUser) return;
+    try {
+      await updateDoc(doc(db, 'users', currentUser.id), {
+        status: 'offline',
+        lastSeen: new Date().toISOString(),
+        sessionId: null,
+      });
+      get().addLog('user_status_offline', `${currentUser.name} went offline`, { userId: currentUser.id, sessionId: sessionId || null });
+    } catch (err) {
+      console.warn('[Presence] Failed to mark offline:', err);
+    }
+    set({ sessionId: null });
   },
 }));

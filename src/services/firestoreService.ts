@@ -44,6 +44,10 @@ export function docToUser(id: string, data: Record<string, unknown>): User {
     avatar: data.avatar as string | undefined,
     createdAt: toDate(data.createdAt),
     lastLogin: data.lastLogin ? toDate(data.lastLogin) : undefined,
+    status: (data.status as 'online' | 'offline') || undefined,
+    lastActive: data.lastActive ? toDate(data.lastActive) : undefined,
+    lastSeen: data.lastSeen ? toDate(data.lastSeen) : undefined,
+    sessionId: (data.sessionId as string) || undefined,
   };
 }
 
@@ -185,6 +189,10 @@ function userPayload(user: Omit<User, 'id'>): Record<string, unknown> {
     avatar: user.avatar || null,
     createdAt: user.createdAt,
     lastLogin: user.lastLogin || null,
+    status: user.status || null,
+    lastActive: user.lastActive || null,
+    lastSeen: user.lastSeen || null,
+    sessionId: user.sessionId || null,
   });
 }
 

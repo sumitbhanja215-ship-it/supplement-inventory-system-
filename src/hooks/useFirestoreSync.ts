@@ -16,10 +16,12 @@ export function useFirestoreSync() {
     _setUsers, _setProducts, _setLocations, _setCategories,
     _setBrands, _setSuppliers, _setStockMovements, _setTransfers,
     _setLogs, _setNotifications, _setPosSales, _setSettings,
+    markUserOnline, markUserOffline, startHeartbeat, stopHeartbeat,
   } = useStore();
 
   const dataUnsubs = useRef<Array<() => void>>([]);
   const loggedInUserId = useRef<string | null>(null);
+  const presenceCleanup = useRef<(() => void) | null>(null);
 
   const startDataListeners = () => {
     dataUnsubs.current.forEach(u => u());
@@ -105,6 +107,34 @@ export function useFirestoreSync() {
     dataUnsubs.current = [];
   };
 
+  const setupPresenceCleanup = () => {
+    const handleBeforeUnload = () => {
+      markUserOffline();
+      stopHeartbeat();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // Tab hidden — user may still be active, don't mark offline yet
+        // The heartbeat will keep updating lastActive
+        // If browser closes, beforeunload will catch it
+      } else {
+        // Tab visible again — ensure online
+        const { currentUser } = useStore.getState();
+        if (currentUser) {
+          markUserOnline();
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  };
+
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
@@ -121,6 +151,14 @@ export function useFirestoreSync() {
               loggedInUserId.current = firebaseUser.uid;
               useStore.getState().addLog('login', `${userProfile.name} logged in`, { userId: userProfile.id });
             }
+            // Mark user online and start heartbeat
+            await markUserOnline();
+            startHeartbeat();
+            // Setup browser close / tab visibility detection
+            if (presenceCleanup.current) {
+              presenceCleanup.current();
+            }
+            presenceCleanup.current = setupPresenceCleanup();
             // Start real-time listeners only after profile is confirmed
             startDataListeners();
           } else {
@@ -139,6 +177,11 @@ export function useFirestoreSync() {
         console.log('[Auth] User signed out');
         loggedInUserId.current = null;
         stopDataListeners();
+        stopHeartbeat();
+        if (presenceCleanup.current) {
+          presenceCleanup.current();
+          presenceCleanup.current = null;
+        }
         setCurrentUserFromAuth(null);
         _setAuthLoading(false);
       }
@@ -147,6 +190,10 @@ export function useFirestoreSync() {
     return () => {
       unsubAuth();
       stopDataListeners();
+      stopHeartbeat();
+      if (presenceCleanup.current) {
+        presenceCleanup.current();
+      }
     };
   }, []);
 }

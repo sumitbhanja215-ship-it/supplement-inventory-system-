@@ -145,6 +145,10 @@ export async function seedFirestoreIfEmpty(): Promise<void> {
         role: u.role,
         assignedLocation: u.assignedLocation,
         createdAt: new Date().toISOString(),
+        status: 'offline',
+        lastActive: null,
+        lastSeen: null,
+        sessionId: null,
       },
     }));
 
@@ -164,9 +168,8 @@ export async function seedFirestoreIfEmpty(): Promise<void> {
     if (preSeedEmail && preSeedEmail !== adminEmail) {
       try { await signOut(auth); } catch { /* ignore */ }
       try { await signInWithEmailAndPassword(auth, preSeedEmail, adminPassword); } catch { /* ignore */ }
-    } else if (!preSeedEmail) {
-      try { await signOut(auth); } catch { /* ignore */ }
     }
+    // If preSeedEmail was null, don't sign out — the user may have logged in during seeding
     return;
   }
 
@@ -235,10 +238,17 @@ export async function seedFirestoreIfEmpty(): Promise<void> {
   });
 
   console.log('[Seed] Done.');
-  if (preSeedEmail && preSeedEmail !== adminEmail) {
-    try { await signOut(auth); } catch { /* ignore */ }
-    try { await signInWithEmailAndPassword(auth, preSeedEmail, adminPassword); } catch { /* ignore */ }
-  } else if (!preSeedEmail) {
-    try { await signOut(auth); } catch { /* ignore */ }
+  // Only sign out / re-sign-in if we were the ones who signed in as admin
+  // If the user logged in during seeding, don't interfere with their session
+  const currentEmail = await getCurrentUserEmail();
+  if (currentEmail === adminEmail && preSeedEmail !== adminEmail) {
+    // We signed in as admin but were not admin before — sign out and restore
+    if (preSeedEmail) {
+      try { await signOut(auth); } catch { /* ignore */ }
+      try { await signInWithEmailAndPassword(auth, preSeedEmail, adminPassword); } catch { /* ignore */ }
+    } else {
+      // We signed in as admin but no one was logged in before — just sign out
+      try { await signOut(auth); } catch { /* ignore */ }
+    }
   }
 }

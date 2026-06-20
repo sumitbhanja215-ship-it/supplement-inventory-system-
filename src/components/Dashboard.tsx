@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import {
   Package, AlertTriangle, Clock,
-  ArrowUpCircle, ArrowDownCircle, DollarSign, Activity, MapPin
+  ArrowUpCircle, ArrowDownCircle, DollarSign, Activity, MapPin, Users, Wifi, WifiOff
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -14,7 +14,7 @@ import { format, subDays, parseISO, isSameDay } from 'date-fns';
 const COLORS = ['#2563eb', '#16a34a', '#dc2626', '#d97706', '#9333ea', '#0891b2', '#be185d', '#65a30d'];
 
 export default function Dashboard() {
-  const { products, stockMovements, locations, categories, logs, transfers } = useStore();
+  const { products, stockMovements, locations, categories, logs, transfers, users } = useStore();
 
   const stats = useMemo(() => {
     const totalValue = products.reduce((sum, p) => sum + p.purchasePrice * p.quantity, 0);
@@ -30,8 +30,11 @@ export default function Dashboard() {
     const todayIn = todayMovements.filter(m => m.type === 'stock_in').reduce((s, m) => s + m.quantity, 0);
     const todayOut = todayMovements.filter(m => m.type === 'stock_out').reduce((s, m) => s + m.quantity, 0);
 
-    return { totalValue, totalProducts, lowStock, expiring30, todayIn, todayOut };
-  }, [products, stockMovements]);
+    const onlineUsers = users.filter(u => u.status === 'online').length;
+    const offlineUsers = users.filter(u => u.status !== 'online').length;
+
+    return { totalValue, totalProducts, lowStock, expiring30, todayIn, todayOut, onlineUsers, offlineUsers };
+  }, [products, stockMovements, users]);
 
   // Last 7 days stock movement chart
   const movementChart = useMemo(() => {
@@ -123,8 +126,34 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Today's Movement */}
+      {/* User Presence & Today's Movement */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 font-medium">Online Users</p>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+              <Wifi size={20} className="text-green-600 dark:text-green-400" />
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-green-600 dark:text-green-400">{stats.onlineUsers}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Currently active</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 font-medium">Offline Users</p>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+              <WifiOff size={20} className="text-gray-500 dark:text-gray-400" />
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-gray-500 dark:text-gray-400">{stats.offlineUsers}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Not active</p>
+            </div>
+          </div>
+        </div>
+
         <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800 col-span-1 lg:col-span-2">
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 font-medium">Today's Stock Movement</p>
           <div className="flex gap-6">

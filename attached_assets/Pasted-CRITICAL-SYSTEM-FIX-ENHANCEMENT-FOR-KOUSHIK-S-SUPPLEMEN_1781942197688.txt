@@ -1,0 +1,412 @@
+CRITICAL SYSTEM FIX & ENHANCEMENT FOR KOUSHIK'S SUPPLEMENT STORE
+
+Fix all authentication, audit log, session persistence, online/offline tracking, and user management issues without affecting existing inventory data.
+
+==================================================
+AUTHENTICATION FIX
+==================================================
+
+Current Issue:
+- User gets logged out after page refresh.
+- User gets logged out after reopening browser.
+- Auth state is not restored correctly.
+
+Requirements:
+
+1. Use Firebase Authentication browserLocalPersistence.
+
+await setPersistence(auth, browserLocalPersistence);
+
+2. User must remain logged in:
+   - Page refresh
+   - Route changes
+   - Browser restart
+   - New tab opening
+
+3. User should only be logged out when:
+   - Logout button clicked
+   - Account disabled by Super Admin
+   - Session manually terminated
+
+4. Use only ONE auth state listener.
+
+5. Wait until Firebase finishes checking auth before redirecting.
+
+Example:
+
+if (!authInitialized)
+{
+   show loading screen
+}
+
+if (!currentUser)
+{
+   redirect login
+}
+
+6. Never redirect to login while auth state is loading.
+
+==================================================
+REMOVE AUTO LOGOUT BUG
+==================================================
+
+Search and fix:
+
+signOut(auth)
+navigate('/login')
+router.push('/login')
+window.location.reload()
+location.reload()
+
+Ensure none of these execute automatically on refresh.
+
+Logout must happen ONLY when Logout button is clicked.
+
+==================================================
+AUDIT LOG SYSTEM FIX
+==================================================
+
+Current Problems:
+- Duplicate login logs.
+- Duplicate user actions.
+- Same timestamp repeated.
+- Log count incorrect.
+
+Requirements:
+
+1. Login log created ONLY once.
+
+2. Do NOT create logs from:
+   - page refresh
+   - auth listener
+   - route change
+   - dashboard load
+   - profile load
+
+3. Login log should only be created after successful login.
+
+4. Logout log should only be created after successful logout.
+
+5. Every audit log must contain:
+
+{
+   id
+   userId
+   username
+   role
+   action
+   description
+   createdAt
+   sessionId
+}
+
+6. Use Firestore serverTimestamp().
+
+Never use local browser time.
+
+7. Timestamp format:
+
+DD MMM YYYY, hh:mm:ss A
+
+Example:
+
+20 Jun 2026, 01:20:41 PM
+
+8. Sort newest first.
+
+==================================================
+DUPLICATE AUDIT LOG PROTECTION
+==================================================
+
+Before inserting any log:
+
+Check last 10 seconds.
+
+If same:
+- userId
+- username
+- action
+- description
+
+already exists
+
+DO NOT create another record.
+
+==================================================
+SESSION TRACKING
+==================================================
+
+Generate unique sessionId on login.
+
+Example:
+
+uid_timestamp_random
+
+Store in user session.
+
+Same session must never generate multiple login logs.
+
+==================================================
+AUDIT LOG CLEANUP
+==================================================
+
+Create cleanup tool.
+
+Find duplicate logs where:
+
+username + action + timestamp
+
+are identical.
+
+Keep newest record.
+
+Delete duplicates.
+
+==================================================
+ONLINE / OFFLINE STATUS SYSTEM
+==================================================
+
+Add real-time online/offline tracking.
+
+Firestore User Structure:
+
+{
+   uid
+   username
+   email
+   role
+   status
+   lastSeen
+   lastActive
+}
+
+==================================================
+ONLINE STATUS
+==================================================
+
+When user logs in:
+
+status = "online"
+
+Update immediately.
+
+==================================================
+OFFLINE STATUS
+==================================================
+
+When user logs out:
+
+status = "offline"
+
+lastSeen = serverTimestamp()
+
+==================================================
+BROWSER CLOSE DETECTION
+==================================================
+
+When user closes:
+
+- Browser
+- Tab
+- Laptop
+
+Automatically set:
+
+status = offline
+
+lastSeen = serverTimestamp()
+
+Use:
+
+beforeunload
+visibilitychange
+
+==================================================
+HEARTBEAT SYSTEM
+==================================================
+
+Every 30 seconds:
+
+Update:
+
+lastActive = serverTimestamp()
+
+If lastActive older than 2 minutes:
+
+Automatically set:
+
+status = offline
+
+==================================================
+REAL-TIME USER STATUS
+==================================================
+
+Users page must display:
+
+Username
+Role
+Status
+Last Seen
+Location
+
+Examples:
+
+SUMIT      🟢 Online
+PANKAJ     🔴 Offline
+
+==================================================
+LAST SEEN DISPLAY
+==================================================
+
+Display:
+
+Online Now
+
+Last Seen 2 Minutes Ago
+
+Last Seen 1 Hour Ago
+
+Last Seen Yesterday
+
+Also display exact date/time.
+
+==================================================
+AUDIT LOG STATUS EVENTS
+==================================================
+
+Create audit logs:
+
+User Online
+User Offline
+
+Examples:
+
+SUMIT came online
+
+SUMIT went offline
+
+Only one log per status change.
+
+No duplicates.
+
+==================================================
+DASHBOARD USER WIDGET
+==================================================
+
+Show:
+
+Total Users
+Online Users
+Offline Users
+
+Example:
+
+Users: 12
+Online: 4
+Offline: 8
+
+==================================================
+ROLE SECURITY
+==================================================
+
+SUPER ADMIN
+- Full access
+- View all users
+- View all audit logs
+- Reset logs
+- Change roles
+- Disable accounts
+
+ADMIN
+- Can create managers and staff
+- Cannot edit Super Admin
+- Cannot delete Super Admin
+- Cannot view Super Admin credentials
+
+STORE MANAGER
+- Inventory control
+- Sales
+- Transfers
+
+STAFF
+- Limited inventory operations
+
+==================================================
+FIREBASE SECURITY
+==================================================
+
+Use Firestore rules to prevent:
+
+- Staff editing admins
+- Admin editing Super Admin
+- Unauthorized role changes
+- Unauthorized status updates
+
+==================================================
+IDENTITY TOOLKIT ERROR FIX
+==================================================
+
+Console currently shows:
+
+identitytoolkit.googleapis.com
+Status 400
+
+Search project for:
+
+signInWithEmailAndPassword
+createUserWithEmailAndPassword
+signInWithCustomToken
+
+Ensure none are called automatically after login.
+
+Authentication requests must only occur during actual login.
+
+==================================================
+FINAL TESTS
+==================================================
+
+Test 1:
+Login once
+Expected:
+1 Login Log
+
+Test 2:
+Refresh page 20 times
+Expected:
+No new login logs
+
+Test 3:
+Close browser
+Reopen browser
+Expected:
+Still logged in
+
+Test 4:
+Logout
+Expected:
+1 Logout Log
+
+Test 5:
+Go Online
+Expected:
+Status Online
+
+Test 6:
+Close browser
+Expected:
+Status Offline
+
+Test 7:
+Dashboard counters accurate
+
+Test 8:
+No duplicate logs
+
+Provide final report:
+- Files modified
+- Auth fixes
+- Audit log fixes
+- Session persistence fixes
+- Online/offline tracking fixes
+- Security fixes
+- Test results

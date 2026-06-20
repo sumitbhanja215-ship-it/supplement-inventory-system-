@@ -1,4 +1,4 @@
-import { differenceInDays, format, parseISO } from 'date-fns';
+import { differenceInDays, format, parseISO, differenceInSeconds, differenceInMinutes, differenceInHours } from 'date-fns';
 
 export function formatCurrency(amount: number): string {
   return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -72,5 +72,21 @@ export function getRoleLabel(role: string): string {
     case 'store_manager': return 'Store Manager';
     case 'staff': return 'Staff';
     default: return role;
+  }
+}
+
+export function formatRelativeTime(dateStr: string): string {
+  try {
+    const date = parseISO(dateStr);
+    const now = new Date();
+    const seconds = differenceInSeconds(now, date);
+    if (seconds < 60) return 'Just now';
+    const minutes = differenceInMinutes(now, date);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = differenceInHours(now, date);
+    if (hours < 24) return `${hours}h ago`;
+    return format(date, 'dd MMM, hh:mm a');
+  } catch {
+    return dateStr;
   }
 }
